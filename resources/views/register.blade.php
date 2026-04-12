@@ -26,7 +26,6 @@
             <div
                 class="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-blue-700 font-black text-4xl mb-8 shadow-lg">
                 K</div>
-
             <h1 class="text-4xl font-bold mb-4 leading-tight">Mulai Perjalanan Bisnis Anda.</h1>
             <p class="text-blue-100 text-lg leading-relaxed">Bergabunglah dengan KasirPro dan rasakan kemudahan
                 mengelola transaksi, memantau stok, dan menganalisis keuntungan dalam satu platform.</p>
@@ -35,11 +34,9 @@
                 <div class="flex items-center gap-4">
                     <div
                         class="w-12 h-12 bg-green-400/20 rounded-full flex items-center justify-center text-green-400 text-xl">
-                        📈
-                    </div>
+                        📈</div>
                     <div>
-                        <div class="text-blue-100 text-xs uppercase tracking-wider font-semibold mb-0.5">
-                            Laba Hari Ini
+                        <div class="text-blue-100 text-xs uppercase tracking-wider font-semibold mb-0.5">Laba Hari Ini
                         </div>
                         <div class="text-xl font-bold">Rp 5.300.000</div>
                     </div>
@@ -80,19 +77,28 @@
                         Toko</label>
                     <input type="text" name="name" id="name" value="{{ old('name') }}"
                         class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-600 focus:border-blue-600 block w-full p-3.5 transition"
-                        placeholder="Cth: Miracle Bagus" required>
+                        placeholder="Cth: Bagus Cafe" required>
                     @error('name')
                         <p class="mt-1 text-sm text-rose-600 font-medium">{{ $message }}</p>
                     @enderror
                 </div>
 
                 <div>
-                    <label for="username" class="block mb-1.5 text-sm font-semibold text-gray-900">Username /
-                        Email</label>
+                    <label for="username" class="block mb-1.5 text-sm font-semibold text-gray-900">Username</label>
                     <input type="text" name="username" id="username" value="{{ old('username') }}"
                         class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-600 focus:border-blue-600 block w-full p-3.5 transition"
-                        placeholder="admin@kasirpro.com" required>
+                        placeholder="miraclebagus" required>
                     @error('username')
+                        <p class="mt-1 text-sm text-rose-600 font-medium">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div>
+                    <label for="email" class="block mb-1.5 text-sm font-semibold text-gray-900">Alamat Email</label>
+                    <input type="email" name="email" id="email" value="{{ old('email') }}"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-600 focus:border-blue-600 block w-full p-3.5 transition"
+                        placeholder="admin@kasirpro.com" required>
+                    @error('email')
                         <p class="mt-1 text-sm text-rose-600 font-medium">{{ $message }}</p>
                     @enderror
                 </div>
@@ -166,11 +172,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
     <script>
-        // 1. Fungsi Toggle Mata
         function togglePassword(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
-
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.innerHTML =
@@ -182,7 +186,6 @@
             }
         }
 
-        // 2. Fungsi Validasi Real-time Kecocokan Password (seperti kode Anda sebelumnya)
         function checkPasswordMatch() {
             const password = document.getElementById('reg-password').value;
             const confirmInput = document.getElementById('reg-password-confirm');
@@ -211,20 +214,16 @@
             }
         }
 
-        // 3. Fungsi Validasi saat Tombol Daftar diklik (Alert)
         function validatePassword(event) {
             const password = document.getElementById('reg-password').value;
             const confirmPassword = document.getElementById('reg-password-confirm').value;
 
             if (password !== confirmPassword) {
-                event.preventDefault(); // Mencegah form dikirim ke server
-
+                event.preventDefault();
                 alert("Oops! Konfirmasi password tidak cocok. Silakan periksa kembali password Anda.");
-
                 document.getElementById('reg-password-confirm').value = '';
                 document.getElementById('reg-password-confirm').focus();
-                checkPasswordMatch(); // reset tampilan border
-
+                checkPasswordMatch();
                 return false;
             }
             return true;
