@@ -3,6 +3,8 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\SettingController;
+use App\Http\Controllers\DashboardController;
 
 // 1. Landing Page (Bisa diakses siapa saja)
 Route::get('/', function () {
@@ -50,13 +52,12 @@ Route::middleware('auth')->group(function () {
     // RUTE BARU UNTUK EXPORT
     Route::get('/laporan/export', [App\Http\Controllers\AnalyticsController::class, 'exportCsv'])->name('analytics.export');
 
-    // Semua halaman ini otomatis TERKUNCI untuk yang belum login
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
-    Route::get('/pengaturan', function () {
-        return view('pengaturan');
-    });
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
+    Route::put('/pengaturan/profil', [SettingController::class, 'updateProfile'])->name('settings.profile.update');
+    Route::put('/pengaturan/toko', [SettingController::class, 'updateStore'])->name('settings.store.update');
+    Route::put('/pengaturan/struk', [SettingController::class, 'updateReceipt'])->name('settings.receipt.update');
     // Proses Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

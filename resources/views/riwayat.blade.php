@@ -1,199 +1,221 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">Riwayat Invoice</h1>
-            <p class="text-gray-500 text-sm mt-1">Pantau seluruh riwayat transaksi kasir dan cetak ulang struk pelanggan.</p>
-        </div>
-        <div class="flex gap-2">
-            <button
-                class="flex items-center justify-center text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-4 py-2.5 transition shadow-sm">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                    </path>
+    @php
+        $storeName = $settings['store_name'] ?? 'KasirPro';
+        $storePhone = $settings['store_phone'] ?? '-';
+        $storeAddress = $settings['store_address'] ?? 'Alamat toko belum diatur';
+        $taxRate = $settings['tax_rate'] ?? 10;
+        $receiptFooter = $settings['receipt_footer'] ?? 'Terima kasih atas kunjungannya!';
+    @endphp
+
+    <div class="space-y-6">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+                    <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+                    Invoice history
+                </div>
+                <h1 class="text-3xl font-black tracking-tight text-slate-950 md:text-4xl">Riwayat Invoice</h1>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Pantau seluruh riwayat transaksi kasir, metode pembayaran, pajak, total penjualan, dan cetak ulang struk pelanggan.</p>
+            </div>
+
+            <button class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-950">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
                 Export PDF
             </button>
         </div>
-    </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div class="bg-blue-600 rounded-xl p-5 text-white shadow-sm relative overflow-hidden">
-            <div class="absolute -right-6 -top-6 opacity-20">
-                <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                        d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z">
-                    </path>
-                </svg>
-            </div>
-            <p class="text-blue-100 font-medium text-sm mb-1 relative z-10">Transaksi Hari Ini</p>
-            <h3 class="text-3xl font-bold relative z-10">
-                {{ $transactions->where('created_at', '>=', \Carbon\Carbon::today())->count() }} <span
-                    class="text-sm font-normal">Struk</span>
-            </h3>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <p class="text-gray-500 font-medium text-sm mb-1">Pendapatan Hari Ini</p>
-            <h3 class="text-2xl font-bold text-gray-900">Rp
-                {{ number_format($transactions->where('created_at', '>=', \Carbon\Carbon::today())->sum('grand_total'), 0, ',', '.') }}
-            </h3>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <p class="text-gray-500 font-medium text-sm mb-1">Pajak Terkumpul (Tax)</p>
-            <h3 class="text-2xl font-bold text-gray-900">Rp
-                {{ number_format($transactions->where('created_at', '>=', \Carbon\Carbon::today())->sum('tax'), 0, ',', '.') }}
-            </h3>
-        </div>
-    </div>
-
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left text-gray-500">
-                <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
-                    <tr>
-                        <th class="px-6 py-4">Invoice / Tanggal</th>
-                        <th class="px-6 py-4 text-center">Item Terjual</th>
-                        <th class="px-6 py-4 text-right">Subtotal</th>
-                        <th class="px-6 py-4 text-right">Tax (Pajak)</th>
-                        <th class="px-6 py-4 text-right">Total Akhir</th>
-                        <th class="px-6 py-4 text-center">Metode</th>
-                        <th class="px-6 py-4 text-center">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($transactions as $trx)
-                        <tr class="bg-white border-b hover:bg-gray-50 transition">
-                            <td class="px-6 py-4">
-                                <div class="font-bold text-blue-600 text-sm">{{ $trx->invoice_no }}</div>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    {{ \Carbon\Carbon::parse($trx->created_at)->format('d M Y, H:i') }} WIB
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 text-center">
-                                <span
-                                    class="bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-gray-200">
-                                    {{ $trx->details->sum('qty') }} Produk
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-right text-gray-500 font-medium">Rp
-                                {{ number_format($trx->subtotal, 0, ',', '.') }}</td>
-                            <td class="px-6 py-4 text-right text-gray-500">Rp {{ number_format($trx->tax, 0, ',', '.') }}
-                            </td>
-                            <td class="px-6 py-4 text-right font-bold text-gray-900 text-base">Rp
-                                {{ number_format($trx->grand_total, 0, ',', '.') }}</td>
-
-                            <td class="px-6 py-4 text-center">
-                                @if (strtolower($trx->payment_method) == 'cash')
-                                    <span
-                                        class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-md border border-emerald-200 block w-max mx-auto uppercase">
-                                        CASH
-                                    </span>
-                                @elseif(strtolower($trx->payment_method) == 'qris')
-                                    <span
-                                        class="bg-orange-100 text-orange-800 text-xs font-bold px-3 py-1 rounded-md border border-orange-200 block w-max mx-auto uppercase">
-                                        QRIS
-                                    </span>
-                                @else
-                                    <span
-                                        class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-md border border-blue-200 block w-max mx-auto uppercase">
-                                        CARD
-                                    </span>
-                                @endif
-                            </td>
-
-                            <td class="px-6 py-4 text-center">
-                                <button
-                                    onclick="showInvoiceDetail('{{ $trx->invoice_no }}', '{{ \Carbon\Carbon::parse($trx->created_at)->format('d M Y, H:i') }}', '{{ $trx->payment_method }}', {{ $trx->subtotal }}, {{ $trx->tax }}, {{ $trx->grand_total }}, {{ $trx->pay_amount }}, {{ $trx->return_amount }}, {{ json_encode($trx->details) }})"
-                                    data-modal-target="invoice-modal" data-modal-toggle="invoice-modal"
-                                    class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-lg transition inline-flex items-center justify-center"
-                                    title="Lihat Struk">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                                        </path>
-                                    </svg>
-                                </button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="px-6 py-10 text-center text-gray-500">Belum ada riwayat transaksi
-                                kasir.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div id="invoice-modal" tabindex="-1"
-        class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full backdrop-blur-sm bg-gray-900/50">
-        <div class="relative p-4 w-full max-w-md max-h-full">
-            <div class="relative bg-white rounded-xl shadow-2xl overflow-hidden">
-                <div
-                    class="h-2 w-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPgo8cG9seWdvbiBwb2ludHM9IjAsMCA4LDAgNCw4IiBmaWxsPSIjRjNGNEY2Ii8+Cjwvc3ZnPg==')]">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="group relative overflow-hidden rounded-[2rem] border border-slate-900 bg-slate-950 p-6 text-white shadow-xl shadow-slate-900/10 transition hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-600/20">
+                <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-blue-500/30 blur-2xl transition group-hover:scale-125"></div>
+                <div class="relative">
+                    <div class="mb-5 flex items-center justify-between">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-blue-100">Today</span>
+                    </div>
+                    <p class="text-sm font-bold text-slate-400">Transaksi Hari Ini</p>
+                    <div class="mt-2 flex items-end gap-2">
+                        <h3 class="text-4xl font-black tracking-tight">{{ $transactions->where('created_at', '>=', \Carbon\Carbon::today())->count() }}</h3>
+                        <span class="mb-1 text-sm font-bold text-slate-400">Struk</span>
+                    </div>
                 </div>
+            </div>
+
+            <div class="group relative overflow-hidden rounded-[2rem] border border-white/80 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/70">
+                <div class="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-emerald-100/70 transition group-hover:scale-125"></div>
+                <div class="relative">
+                    <div class="mb-5 flex items-center justify-between">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600">Revenue</span>
+                    </div>
+                    <p class="text-sm font-bold text-slate-400">Pendapatan Hari Ini</p>
+                    <h3 class="mt-2 text-2xl font-black tracking-tight text-slate-950">Rp {{ number_format($transactions->where('created_at', '>=', \Carbon\Carbon::today())->sum('grand_total'), 0, ',', '.') }}</h3>
+                </div>
+            </div>
+
+            <div class="group relative overflow-hidden rounded-[2rem] border border-white/80 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/70">
+                <div class="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-blue-100/70 transition group-hover:scale-125"></div>
+                <div class="relative">
+                    <div class="mb-5 flex items-center justify-between">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path>
+                            </svg>
+                        </div>
+                        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-600">Tax</span>
+                    </div>
+                    <p class="text-sm font-bold text-slate-400">Pajak Terkumpul</p>
+                    <h3 class="mt-2 text-2xl font-black tracking-tight text-slate-950">Rp {{ number_format($transactions->where('created_at', '>=', \Carbon\Carbon::today())->sum('tax'), 0, ',', '.') }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-sm">
+            <div class="border-b border-slate-100 p-5">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-lg font-black text-slate-950">Daftar Invoice</h2>
+                        <p class="mt-1 text-sm font-semibold text-slate-400">Riwayat transaksi terbaru yang tercatat di sistem.</p>
+                    </div>
+                    <span class="w-fit rounded-full bg-slate-50 px-3 py-1 text-xs font-black text-slate-500">{{ $transactions->count() }} transaksi</span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[980px] text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-[0.14em] text-slate-400">
+                            <th class="px-6 py-4 font-black">Invoice / Tanggal</th>
+                            <th class="px-6 py-4 text-center font-black">Item Terjual</th>
+                            <th class="px-6 py-4 text-right font-black">Subtotal</th>
+                            <th class="px-6 py-4 text-right font-black">Tax</th>
+                            <th class="px-6 py-4 text-right font-black">Total Akhir</th>
+                            <th class="px-6 py-4 text-center font-black">Metode</th>
+                            <th class="px-6 py-4 text-center font-black">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @forelse ($transactions as $trx)
+                            <tr class="bg-white transition hover:bg-slate-50/80">
+                                <td class="px-6 py-4">
+                                    <div class="font-black text-blue-600">{{ $trx->invoice_no }}</div>
+                                    <div class="mt-1 text-xs font-semibold text-slate-400">{{ \Carbon\Carbon::parse($trx->created_at)->format('d M Y, H:i') }} WIB</div>
+                                </td>
+
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">{{ $trx->details->sum('qty') }} Produk</span>
+                                </td>
+
+                                <td class="px-6 py-4 text-right font-bold text-slate-500">Rp {{ number_format($trx->subtotal, 0, ',', '.') }}</td>
+                                <td class="px-6 py-4 text-right font-bold text-slate-500">Rp {{ number_format($trx->tax, 0, ',', '.') }}</td>
+                                <td class="px-6 py-4 text-right text-base font-black text-slate-950">Rp {{ number_format($trx->grand_total, 0, ',', '.') }}</td>
+
+                                <td class="px-6 py-4 text-center">
+                                    @if (strtolower($trx->payment_method) == 'cash')
+                                        <span class="mx-auto block w-max rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase text-emerald-600">Cash</span>
+                                    @elseif(strtolower($trx->payment_method) == 'qris')
+                                        <span class="mx-auto block w-max rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-black uppercase text-orange-600">QRIS</span>
+                                    @else
+                                        <span class="mx-auto block w-max rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black uppercase text-blue-600">Card</span>
+                                    @endif
+                                </td>
+
+                                <td class="px-6 py-4 text-center">
+                                    <button onclick="showInvoiceDetail('{{ $trx->invoice_no }}', '{{ \Carbon\Carbon::parse($trx->created_at)->format('d M Y, H:i') }}', '{{ $trx->payment_method }}', {{ $trx->subtotal }}, {{ $trx->tax }}, {{ $trx->grand_total }}, {{ $trx->pay_amount }}, {{ $trx->return_amount }}, {{ json_encode($trx->details) }})" data-modal-target="invoice-modal" data-modal-toggle="invoice-modal" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" title="Lihat Struk">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-14 text-center">
+                                    <div class="mx-auto flex max-w-sm flex-col items-center text-slate-400">
+                                        <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-slate-50 text-3xl">🧾</div>
+                                        <p class="font-bold">Belum ada riwayat transaksi kasir.</p>
+                                        <p class="mt-1 text-sm">Transaksi yang berhasil akan tampil di halaman ini.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="invoice-modal" tabindex="-1" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-950/50 backdrop-blur-sm md:inset-0">
+        <div class="relative max-h-full w-full max-w-md p-4">
+            <div class="relative overflow-hidden rounded-[2rem] bg-white shadow-2xl shadow-slate-900/20">
+                <div class="h-2 w-full bg-gradient-to-r from-blue-600 via-cyan-400 to-blue-600"></div>
 
                 <div class="p-6">
-                    <div class="text-center mb-6 border-b border-dashed border-gray-300 pb-4">
-                        <h2 class="text-2xl font-black text-gray-900 mb-1">KASIRPRO</h2>
-                        <p class="text-xs text-gray-500">Jl. Teknologi No. 404, Purwokerto</p>
-                        <p class="text-xs text-gray-500">Telp: 0812-3456-7890</p>
+                    <div class="mb-6 border-b border-dashed border-slate-300 pb-5 text-center">
+                        <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-base font-black text-white">K</div>
+                        <h2 class="text-2xl font-black tracking-tight text-slate-950">{{ strtoupper($storeName) }}</h2>
+                        <p class="mt-1 text-xs font-semibold text-slate-400">{{ $storeAddress }}</p>
+                        <p class="text-xs font-semibold text-slate-400">Telp: {{ $storePhone }}</p>
                     </div>
 
-                    <div class="flex justify-between items-center text-xs text-gray-600 mb-4">
-                        <div>
-                            <p>Invoice: <span id="modal-inv" class="font-bold text-gray-900"></span></p>
-                            <p>Kasir: Admin</p>
-                            <p>Metode: <span id="modal-method" class="uppercase font-bold text-blue-600"></span></p>
+                    <div class="mb-4 flex justify-between gap-4 text-xs font-semibold text-slate-500">
+                        <div class="space-y-1">
+                            <p>Invoice: <span id="modal-inv" class="font-black text-slate-950"></span></p>
+                            <p>Kasir: <span class="font-black text-slate-950">{{ auth()->user()->name ?? 'Admin' }}</span></p>
+                            <p>Metode: <span id="modal-method" class="font-black uppercase text-blue-600"></span></p>
                         </div>
                         <div class="text-right">
-                            <p id="modal-date"></p>
+                            <p id="modal-date" class="font-black text-slate-950"></p>
+                            <p>WIB</p>
                         </div>
                     </div>
 
-                    <div class="border-t border-b border-dashed border-gray-300 py-3 mb-4 space-y-2" id="modal-items"></div>
+                    <div class="mb-4 space-y-3 border-y border-dashed border-slate-300 py-4" id="modal-items"></div>
 
-                    <div class="space-y-1 text-sm">
-                        <div class="flex justify-between text-gray-500">
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between font-semibold text-slate-500">
                             <p>Subtotal</p>
                             <p id="modal-subtotal"></p>
                         </div>
-                        <div class="flex justify-between text-gray-500">
-                            <p>Tax (10%)</p>
+                        <div class="flex justify-between font-semibold text-slate-500">
+                            <p>Tax ({{ $taxRate }}%)</p>
                             <p id="modal-tax"></p>
                         </div>
-                        <div
-                            class="flex justify-between text-gray-900 font-bold text-base pt-2 border-t border-gray-100 mt-2">
+                        <div class="mt-3 flex justify-between border-t border-slate-100 pt-3 text-base font-black text-slate-950">
                             <p>TOTAL</p>
                             <p id="modal-grand"></p>
                         </div>
-                        <div class="flex justify-between text-gray-500 pt-2">
+                        <div class="flex justify-between pt-2 font-semibold text-slate-500">
                             <p>Cash / Dibayar</p>
                             <p id="modal-pay"></p>
                         </div>
-                        <div class="flex justify-between text-gray-500">
+                        <div class="flex justify-between font-semibold text-slate-500">
                             <p>Kembalian</p>
                             <p id="modal-return"></p>
                         </div>
                     </div>
 
                     <div class="mt-8 text-center">
-                        <p class="text-xs text-gray-400 italic">Terima kasih atas kunjungannya!</p>
+                        <p class="whitespace-pre-line text-xs font-semibold italic text-slate-400">{{ $receiptFooter }}</p>
                     </div>
                 </div>
 
-                <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
-                    <button data-modal-hide="invoice-modal"
-                        class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100">Tutup</button>
-                    <button onclick="window.print()"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z">
-                            </path>
+                <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 p-4">
+                    <button data-modal-hide="invoice-modal" class="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">Tutup</button>
+                    <button onclick="window.print()" class="inline-flex items-center rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700">
+                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                         </svg>
                         Cetak Struk
                     </button>
@@ -209,7 +231,6 @@
             minimumFractionDigits: 0
         }).format(number);
 
-        // BUGS DIPERBAIKI DI SINI: parameter method ditambahkan
         function showInvoiceDetail(inv, date, method, subtotal, tax, grand, pay, returnAmount, items) {
             document.getElementById('modal-inv').innerText = inv;
             document.getElementById('modal-date').innerText = date;
@@ -223,12 +244,12 @@
             let itemsHtml = '';
             items.forEach(item => {
                 itemsHtml += `
-                    <div class="flex justify-between text-sm">
-                        <div class="flex-1 pr-2">
-                            <p class="font-medium text-gray-900">${item.product_name}</p>
-                            <p class="text-xs text-gray-500">${item.qty} x ${formatRp(item.price)}</p>
+                    <div class="flex justify-between gap-4 text-sm">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate font-black text-slate-950">${item.product_name}</p>
+                            <p class="mt-1 text-xs font-semibold text-slate-400">${item.qty} x ${formatRp(item.price)}</p>
                         </div>
-                        <p class="font-medium text-gray-900">${formatRp(item.subtotal)}</p>
+                        <p class="shrink-0 font-black text-slate-950">${formatRp(item.subtotal)}</p>
                     </div>
                 `;
             });

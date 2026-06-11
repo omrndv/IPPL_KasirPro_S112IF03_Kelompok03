@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Setting;
 use Carbon\Carbon;
 
 class PosController extends Controller
@@ -33,10 +34,8 @@ class PosController extends Controller
         return view('transaksi', compact('products', 'categories'));
     }
 
-    // 2. Memproses Checkout / Pembayaran (API backend)
     public function checkout(Request $request)
     {
-        // Validasi input dari JavaScript
         $request->validate([
             'cart' => 'required|array',
             'cart.*.id' => 'required|exists:products,id',
@@ -45,19 +44,19 @@ class PosController extends Controller
             'payment_method' => 'required|string'
         ]);
 
-        // Mula sistem anti-bocor (Database Transaction)
         DB::beginTransaction();
 
         try {
             $subtotal = 0;
             $details = [];
 
-            // Looping keranjang belanja
             foreach ($request->cart as $item) {
-                // Kunci produk agar tidak dibeli kasir lain di detik yang sama (Pessimistic Locking)
                 $product = Product::lockForUpdate()->find($item['id']);
 
-                // Cek apakah stok cukup
+                if (!$product) {
+                    throw new \Exception('Produk tidak ditemukan.');
+                }
+
                 if ($product->stock < $item['qty']) {
                     throw new \Exception("Stok untuk {$product->name} tidak mencukupi! Sisa: {$product->stock}");
                 }
@@ -65,11 +64,9 @@ class PosController extends Controller
                 $itemSubtotal = $product->selling_price * $item['qty'];
                 $subtotal += $itemSubtotal;
 
-                // Kurangi stok produk
                 $product->stock -= $item['qty'];
                 $product->save();
 
-                // Siapkan data detail untuk disimpan
                 $details[] = [
                     'product_id' => $product->id,
                     'product_name' => $product->name,
@@ -81,19 +78,22 @@ class PosController extends Controller
                 ];
             }
 
-            // Hitung Pajak (Misal 10%)
-            $tax = $subtotal * 0.10;
+            $taxEnabled = Setting::getValue('tax_enabled', '1') == '1';
+            $taxRate = (float) Setting::getValue('tax_rate', 10);
+
+            $tax = $taxEnabled ? $subtotal * ($taxRate / 100) : 0;
             $grandTotal = $subtotal + $tax;
 
-            // Pastikan uang cukup
             if ($request->pay_amount < $grandTotal) {
-                throw new \Exception("Uang pembayaran kurang!");
+                throw new \Exception('Uang pembayaran kurang!');
             }
 
-            // Generate Nomor Invoice unik
             $invoiceNo = 'INV-' . Carbon::now()->format('Ymd') . '-' . rand(1000, 9999);
 
-            // Simpan Transaksi Utama
+            while (Transaction::where('invoice_no', $invoiceNo)->exists()) {
+                $invoiceNo = 'INV-' . Carbon::now()->format('Ymd') . '-' . rand(1000, 9999);
+            }
+
             $transaction = Transaction::create([
                 'invoice_no' => $invoiceNo,
                 'subtotal' => $subtotal,
@@ -104,26 +104,46 @@ class PosController extends Controller
                 'return_amount' => $request->pay_amount - $grandTotal
             ]);
 
-            // Masukkan ID transaksi ke detail lalu simpan massal (lebih cepat)
             foreach ($details as &$detail) {
                 $detail['transaction_id'] = $transaction->id;
             }
+
             TransactionDetail::insert($details);
 
-            // Jika semua sukses, Commit (permanenkan ke database)
+            $transaction->load('details');
+
+            $settings = Setting::getAllAsArray();
+
             DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Transaksi berhasil!',
                 'transaction_id' => $transaction->id,
-                'invoice_no' => $invoiceNo,
-                'return_amount' => $transaction->return_amount
+                'invoice_no' => $transaction->invoice_no,
+                'subtotal' => $transaction->subtotal,
+                'tax' => $transaction->tax,
+                'grand_total' => $transaction->grand_total,
+                'payment_method' => $transaction->payment_method,
+                'pay_amount' => $transaction->pay_amount,
+                'return_amount' => $transaction->return_amount,
+                'created_at' => $transaction->created_at->format('d M Y, H:i'),
+                'items' => $transaction->details,
+                'settings' => [
+                    'store_name' => $settings['store_name'] ?? 'KasirPro',
+                    'store_phone' => $settings['store_phone'] ?? '-',
+                    'store_address' => $settings['store_address'] ?? 'Alamat toko belum diatur',
+                    'tax_rate' => $settings['tax_rate'] ?? $taxRate,
+                    'receipt_footer' => $settings['receipt_footer'] ?? 'Terima kasih atas kunjungannya!',
+                ],
             ]);
         } catch (\Exception $e) {
-            // Jika ada error (stok habis/uang kurang), batalkan semua!
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
         }
     }
 }

@@ -33,19 +33,19 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
 </head>
 
-<body class="bg-gray-50 antialiased text-gray-900">
+<body class="bg-slate-50 antialiased text-slate-900">
 
-    @include('componen.navbar')
+    @include('components.navbar')
 
-    @include('componen.sidebar')
+    @include('components.sidebar')
 
-    <div class="p-4 sm:ml-64 pt-20 min-h-screen flex flex-col bg-gray-50 border-l border-gray-200">
-        <main class="flex-1">
+    <div class="min-h-screen bg-slate-50 p-4 pt-24 sm:ml-64 lg:p-6 lg:pt-24">
+        <main class="min-h-[calc(100vh-8rem)]">
             @yield('content')
         </main>
 
-        <footer class="mt-auto py-4 text-center text-sm text-gray-500">
-            &copy; 2026 KasirPro - Kelompok 3.
+        <footer class="py-5 text-center text-sm font-semibold text-slate-400">
+            &copy; 2026 KasirPro
         </footer>
     </div>
 

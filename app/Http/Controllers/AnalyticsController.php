@@ -7,14 +7,16 @@ use App\Models\TransactionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\Setting;
 
 class AnalyticsController extends Controller
 {
-    // 1. Halaman Riwayat Invoice
     public function riwayat()
     {
-        $transactions = Transaction::with('details.product')->latest()->get();
-        return view('riwayat', compact('transactions'));
+        $transactions = Transaction::with('details')->latest()->get();
+        $settings = Setting::getAllAsArray();
+
+        return view('riwayat', compact('transactions', 'settings'));
     }
 
     // 2. Halaman Laba & Rugi (DENGAN FILTER RENTANG TANGGAL)
