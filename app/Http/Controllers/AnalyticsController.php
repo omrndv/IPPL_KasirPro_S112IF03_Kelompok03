@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Transaction;
 use App\Models\Setting;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -146,5 +147,31 @@ class AnalyticsController extends Controller
 
         fclose($handle);
         exit;
+    }
+
+    public function destroy($id)
+    {
+        $outletId = auth()->user()->outlet_id;
+        $transaction = Transaction::where('outlet_id', $outletId)->findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            foreach ($transaction->details as $detail) {
+                $product = Product::where('outlet_id', $outletId)->find($detail->product_id);
+                if ($product && $product->is_stock_tracked) {
+                    $product->stock += $detail->qty;
+                    $product->save();
+                }
+            }
+
+            $transaction->delete();
+
+            DB::commit();
+
+            return redirect()->route('analytics.riwayat')->with('success', 'Transaksi/Invoice berhasil dihapus dan stok produk telah dikembalikan.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->route('analytics.riwayat')->with('error', 'Gagal menghapus transaksi: ' . $e->getMessage());
+        }
     }
 }

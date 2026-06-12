@@ -116,7 +116,7 @@
             </div>
         </div>
 
-        <button id="btn-charge" disabled data-modal-target="payment-modal" data-modal-toggle="payment-modal" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-4 text-base font-black text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none disabled:hover:translate-y-0">
+        <button id="btn-charge" disabled onclick="onChargeClick()" data-modal-target="payment-modal" data-modal-toggle="payment-modal" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-4 text-base font-black text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none disabled:hover:translate-y-0">
             <span>Charge</span>
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
@@ -150,7 +150,7 @@
                 <h4 class="mb-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Payment Method</h4>
                 <ul class="mb-6 grid w-full gap-3 md:grid-cols-3">
                     <li>
-                        <input type="radio" id="pay-cash" name="payment_method" value="cash" class="peer hidden" required checked>
+                        <input type="radio" id="pay-cash" name="payment_method" value="cash" onchange="onPaymentMethodChange(this.value)" class="peer hidden" required checked>
                         <label for="pay-cash" class="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
                             <div class="text-center">
                                 <div class="mb-1 text-xl">💵</div>
@@ -159,7 +159,7 @@
                         </label>
                     </li>
                     <li>
-                        <input type="radio" id="pay-qris" name="payment_method" value="qris" class="peer hidden">
+                        <input type="radio" id="pay-qris" name="payment_method" value="qris" onchange="onPaymentMethodChange(this.value)" class="peer hidden">
                         <label for="pay-qris" class="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
                             <div class="text-center">
                                 <div class="mb-1 text-xl">📱</div>
@@ -168,7 +168,7 @@
                         </label>
                     </li>
                     <li>
-                        <input type="radio" id="pay-card" name="payment_method" value="card" class="peer hidden">
+                        <input type="radio" id="pay-card" name="payment_method" value="card" onchange="onPaymentMethodChange(this.value)" class="peer hidden">
                         <label for="pay-card" class="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
                             <div class="text-center">
                                 <div class="mb-1 text-xl">💳</div>
@@ -178,14 +178,23 @@
                     </li>
                 </ul>
 
-                <div class="mb-6">
+                <div id="cash-received-container" class="mb-6">
                     <label class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-400">Cash Received</label>
                     <input type="number" id="pay-amount" oninput="calculateChange()" class="block w-full rounded-2xl border border-slate-200 bg-white p-4 text-lg font-black text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Masukkan jumlah uang...">
                 </div>
 
-                <div class="mb-6 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                <div id="change-container" class="mb-6 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                     <span class="text-sm font-bold text-slate-500">Change</span>
                     <span id="change-display" class="text-xl font-black text-slate-400">Rp 0</span>
+                </div>
+
+                <!-- QRIS Static Code Container -->
+                <div id="qris-container" class="hidden mb-6 flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                    <p class="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Scan QRIS untuk Pembayaran</p>
+                    <div class="relative rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
+                        <img src="{{ asset('images/static_qris.png') }}" class="w-48 h-48 object-contain mx-auto" alt="QRIS Code">
+                    </div>
+                    <p class="mt-3 text-xs font-bold text-slate-500">Silakan scan kode QR di atas untuk menyelesaikan pembayaran non-tunai.</p>
                 </div>
 
                 <button type="button" onclick="submitCheckout()" id="btn-submit-payment" class="flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-4 text-center text-base font-black text-white shadow-lg shadow-slate-900/15 transition hover:bg-blue-600">
@@ -412,6 +421,38 @@
             submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
         }
     }
+
+    function onChargeClick() {
+        document.getElementById('pay-cash').checked = true;
+        onPaymentMethodChange('cash');
+    }
+
+    function onPaymentMethodChange(method) {
+        const qrisContainer = document.getElementById('qris-container');
+        const cashReceivedContainer = document.getElementById('cash-received-container');
+        const changeContainer = document.getElementById('change-container');
+        const payAmountInput = document.getElementById('pay-amount');
+
+        if (method === 'qris') {
+            qrisContainer.classList.remove('hidden');
+            cashReceivedContainer.classList.add('hidden');
+            changeContainer.classList.add('hidden');
+            payAmountInput.value = grandTotalValue;
+        } else if (method === 'card') {
+            qrisContainer.classList.add('hidden');
+            cashReceivedContainer.classList.add('hidden');
+            changeContainer.classList.add('hidden');
+            payAmountInput.value = grandTotalValue;
+        } else {
+            qrisContainer.classList.add('hidden');
+            cashReceivedContainer.classList.remove('hidden');
+            changeContainer.classList.remove('hidden');
+            payAmountInput.value = '';
+        }
+
+        calculateChange();
+    }
+
 
     async function submitCheckout() {
         let payAmount = parseFloat(document.getElementById('pay-amount').value) || 0;

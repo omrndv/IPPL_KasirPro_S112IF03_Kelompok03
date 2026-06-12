@@ -149,10 +149,6 @@ class ProductController extends Controller
 
         $product = Product::where('outlet_id', $outletId)->findOrFail($id);
 
-        if ($product->image) {
-            Storage::disk('public')->delete($product->image);
-        }
-
         $product->delete();
 
         return redirect()->back()->with('success', 'Produk berhasil dihapus dari sistem.');

@@ -310,4 +310,141 @@ class CheckoutTest extends TestCase
         $product->refresh();
         $this->assertFalse((bool)$product->is_stock_tracked);
     }
+
+    public function test_delete_invoice_restores_stock_and_deletes_transaction(): void
+    {
+        $outlet = Outlet::create([
+            'name' => 'Test Outlet',
+            'address' => 'Test Address',
+            'phone' => '1234567890',
+        ]);
+
+        $user = User::create([
+            'name' => 'Test User',
+            'username' => 'testuserdelete',
+            'email' => 'test@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'owner',
+            'outlet_id' => $outlet->id,
+        ]);
+
+        $category = Category::create([
+            'name' => 'Test Category',
+            'outlet_id' => $outlet->id,
+        ]);
+
+        $product = Product::create([
+            'outlet_id' => $outlet->id,
+            'category_id' => $category->id,
+            'sku' => 'PROD-DEL-100',
+            'name' => 'Test Product Stock Delete',
+            'unit' => 'Pcs',
+            'cost_price' => 5000,
+            'selling_price' => 10000,
+            'stock' => 10,
+            'is_stock_tracked' => true,
+        ]);
+
+        $this->actingAs($user);
+
+        // Checkout
+        $responseCheckout = $this->postJson(route('pos.checkout'), [
+            'cart' => [
+                [
+                    'id' => $product->id,
+                    'qty' => 4,
+                ],
+            ],
+            'pay_amount' => 44000, // including 10% tax (40000 + 4000)
+            'payment_method' => 'cash',
+        ]);
+
+        $responseCheckout->assertStatus(200);
+        $product->refresh();
+        $this->assertEquals(6, $product->stock);
+
+        $transaction = \App\Models\Transaction::where('outlet_id', $outlet->id)->first();
+        $this->assertNotNull($transaction);
+
+        // Delete the transaction
+        $responseDelete = $this->delete(route('analytics.riwayat.destroy', $transaction->id));
+        $responseDelete->assertStatus(302);
+        $responseDelete->assertRedirect(route('analytics.riwayat'));
+        $responseDelete->assertSessionHas('success');
+
+        // Assert transaction is deleted
+        $this->assertDatabaseMissing('transactions', ['id' => $transaction->id]);
+        $this->assertDatabaseMissing('transaction_details', ['transaction_id' => $transaction->id]);
+
+        // Assert stock is restored
+        $product->refresh();
+        $this->assertEquals(10, $product->stock);
+    }
+
+    public function test_delete_product_with_transactions_uses_soft_deletes(): void
+    {
+        $outlet = Outlet::create([
+            'name' => 'Test Outlet',
+            'address' => 'Test Address',
+            'phone' => '1234567890',
+        ]);
+
+        $user = User::create([
+            'name' => 'Test User',
+            'username' => 'testuserproddelete',
+            'email' => 'test@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'owner',
+            'outlet_id' => $outlet->id,
+        ]);
+
+        $category = Category::create([
+            'name' => 'Test Category',
+            'outlet_id' => $outlet->id,
+        ]);
+
+        $product = Product::create([
+            'outlet_id' => $outlet->id,
+            'category_id' => $category->id,
+            'sku' => 'PROD-DEL-500',
+            'name' => 'Test Product For Soft Delete',
+            'unit' => 'Pcs',
+            'cost_price' => 5000,
+            'selling_price' => 10000,
+            'stock' => 10,
+            'is_stock_tracked' => true,
+        ]);
+
+        $this->actingAs($user);
+
+        // Checkout
+        $responseCheckout = $this->postJson(route('pos.checkout'), [
+            'cart' => [
+                [
+                    'id' => $product->id,
+                    'qty' => 1,
+                ],
+            ],
+            'pay_amount' => 11000, // including 10% tax (10000 + 1000)
+            'payment_method' => 'cash',
+        ]);
+
+        $responseCheckout->assertStatus(200);
+
+        // Deleting the product should succeed because of SoftDeletes
+        $responseDelete = $this->delete(route('produk.destroy', $product->id));
+        $responseDelete->assertStatus(302);
+        $responseDelete->assertSessionHas('success');
+
+        // Assert the product row still exists in database but has deleted_at set
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+        ]);
+        
+        $product->refresh();
+        $this->assertNotNull($product->deleted_at);
+
+        // Assert that a normal query does not return it
+        $this->assertNull(Product::find($product->id));
+    }
 }

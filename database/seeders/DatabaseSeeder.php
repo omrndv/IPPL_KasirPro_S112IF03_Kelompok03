@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             'password' => \Illuminate\Support\Facades\Hash::make('password'),
             'role' => 'superadmin',
             'outlet_id' => null,
+            'email_verified_at' => now(),
         ]);
 
         // 2. Owner
@@ -37,6 +38,7 @@ class DatabaseSeeder extends Seeder
             'password' => \Illuminate\Support\Facades\Hash::make('password'),
             'role' => 'owner',
             'outlet_id' => $outlet->id,
+            'email_verified_at' => now(),
         ]);
 
         // 3. Admin
@@ -47,6 +49,7 @@ class DatabaseSeeder extends Seeder
             'password' => \Illuminate\Support\Facades\Hash::make('password'),
             'role' => 'admin',
             'outlet_id' => $outlet->id,
+            'email_verified_at' => now(),
         ]);
 
         // 4. Cashier
@@ -57,6 +60,7 @@ class DatabaseSeeder extends Seeder
             'password' => \Illuminate\Support\Facades\Hash::make('password'),
             'role' => 'cashier',
             'outlet_id' => $outlet->id,
+            'email_verified_at' => now(),
         ]);
     }
 }

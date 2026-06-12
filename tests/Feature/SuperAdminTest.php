@@ -20,6 +20,7 @@ class SuperAdminTest extends TestCase
             'password' => bcrypt('password'),
             'role' => 'superadmin',
             'outlet_id' => null,
+            'email_verified_at' => now(),
         ]);
     }
 
@@ -36,6 +37,7 @@ class SuperAdminTest extends TestCase
             'password' => bcrypt('password'),
             'role' => 'owner',
             'outlet_id' => $outlet->id,
+            'email_verified_at' => now(),
         ]);
     }
 
@@ -184,5 +186,75 @@ class SuperAdminTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseHas('users', ['id' => $superadmin->id]);
+    }
+
+    public function test_superadmin_can_update_outlet(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $this->actingAs($superadmin);
+
+        $outlet = Outlet::create([
+            'name' => 'Original Outlet Name',
+            'phone' => '021-11111',
+            'address' => 'Jakarta',
+        ]);
+
+        $response = $this->put(route('superadmin.outlets.update', $outlet->id), [
+            'name' => 'Updated Outlet Name',
+            'phone' => '022-22222',
+            'address' => 'Bandung',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('outlets', [
+            'id' => $outlet->id,
+            'name' => 'Updated Outlet Name',
+            'phone' => '022-22222',
+            'address' => 'Bandung',
+        ]);
+    }
+
+    public function test_superadmin_can_delete_outlet_when_no_users_connected(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $this->actingAs($superadmin);
+
+        $outlet = Outlet::create([
+            'name' => 'Temporary Outlet',
+            'phone' => '022-12345',
+            'address' => 'Cimahi',
+        ]);
+
+        $response = $this->delete(route('superadmin.outlets.destroy', $outlet->id));
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('outlets', ['id' => $outlet->id]);
+    }
+
+    public function test_superadmin_cannot_delete_outlet_when_users_connected(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $this->actingAs($superadmin);
+
+        $outlet = Outlet::create([
+            'name' => 'Busy Outlet',
+            'phone' => '022-12345',
+            'address' => 'Cimahi',
+        ]);
+
+        $user = User::create([
+            'name' => 'Outlet Staff',
+            'username' => 'staff123',
+            'email' => 'staff@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'cashier',
+            'outlet_id' => $outlet->id,
+        ]);
+
+        $response = $this->delete(route('superadmin.outlets.destroy', $outlet->id));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('outlets', ['id' => $outlet->id]);
     }
 }

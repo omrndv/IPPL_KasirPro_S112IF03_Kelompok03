@@ -46,13 +46,33 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
                 'role' => 'owner',
                 'outlet_id' => $outlet->id,
+                'email_verified_at' => null,
+            ]);
+
+            $otp = sprintf("%06d", rand(100000, 999999));
+
+            // Delete old OTPs
+            DB::table('password_otps')->where('email', $user->email)->delete();
+
+            // Insert new OTP
+            DB::table('password_otps')->insert([
+                'email' => $user->email,
+                'otp' => $otp,
+                'expires_at' => \Carbon\Carbon::now()->addMinutes(15),
+                'created_at' => \Carbon\Carbon::now(),
+                'updated_at' => \Carbon\Carbon::now(),
             ]);
 
             DB::commit();
 
-            Auth::login($user);
+            // Send Mail
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\SendRegistrationOtpMail($otp));
 
-            return redirect()->route('dashboard')->with('success', 'Registrasi berhasil! Selamat datang.');
+            // Store in session
+            session(['registration_email' => $user->email]);
+
+            return redirect()->route('register.verify')
+                ->with('success', 'Registrasi berhasil! Kode OTP aktivasi akun telah dikirimkan ke email Anda.');
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -77,13 +97,40 @@ class AuthController extends Controller
         ];
 
         if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
-
-            /**
-             * Jaga-jaga untuk user lama yang belum punya outlet_id.
-             * Kalau semua user lama sudah kamu isi outlet_id lewat tinker, bagian ini tetap aman.
-             */
             $user = Auth::user();
+
+            // Block unverified users from logging in
+            if ($user->email_verified_at === null) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                $otp = sprintf("%06d", rand(100000, 999999));
+
+                DB::beginTransaction();
+                try {
+                    DB::table('password_otps')->where('email', $user->email)->delete();
+                    DB::table('password_otps')->insert([
+                        'email' => $user->email,
+                        'otp' => $otp,
+                        'expires_at' => \Carbon\Carbon::now()->addMinutes(15),
+                        'created_at' => \Carbon\Carbon::now(),
+                        'updated_at' => \Carbon\Carbon::now(),
+                    ]);
+                    DB::commit();
+
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\SendRegistrationOtpMail($otp));
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                }
+
+                session(['registration_email' => $user->email]);
+
+                return redirect()->route('register.verify')
+                    ->with('error', 'Akun Anda belum aktif. Kode verifikasi OTP baru telah dikirimkan ke email Anda.');
+            }
+
+            $request->session()->regenerate();
 
             if ($user->isSuperAdmin()) {
                 return redirect()->route('superadmin.dashboard');
@@ -109,6 +156,97 @@ class AuthController extends Controller
         return back()
             ->with('error', 'Username/Email atau Password Anda salah.')
             ->withInput();
+    }
+
+    public function showVerifyRegister()
+    {
+        $email = session('registration_email');
+
+        if (!$email) {
+            return redirect()->route('register')->with('error', 'Silakan daftar akun terlebih dahulu.');
+        }
+
+        return view('verify-register-otp', compact('email'));
+    }
+
+    public function verifyRegister(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'otp' => 'required|string|size:6',
+        ], [
+            'otp.required' => 'Kode OTP wajib diisi.',
+            'otp.size' => 'Kode OTP harus berjumlah 6 digit.',
+        ]);
+
+        $email = $request->email;
+        $otp = $request->otp;
+
+        $record = DB::table('password_otps')
+            ->where('email', $email)
+            ->where('otp', $otp)
+            ->where('expires_at', '>', \Carbon\Carbon::now())
+            ->first();
+
+        if (!$record) {
+            return back()->with('error', 'Kode OTP salah atau telah kedaluwarsa. Silakan coba lagi.')->withInput();
+        }
+
+        DB::beginTransaction();
+        try {
+            // Delete OTP
+            DB::table('password_otps')->where('email', $email)->delete();
+
+            // Verify user
+            $user = User::where('email', $email)->firstOrFail();
+            $user->update([
+                'email_verified_at' => \Carbon\Carbon::now(),
+            ]);
+
+            DB::commit();
+
+            // Log user in
+            Auth::login($user);
+
+            // Clear session email
+            session()->forget('registration_email');
+
+            return redirect()->route('dashboard')->with('success', 'Verifikasi berhasil! Akun Anda kini telah aktif.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal memverifikasi akun: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    public function resendRegisterOtp(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $email = $request->email;
+        $otp = sprintf("%06d", rand(100000, 999999));
+
+        DB::beginTransaction();
+        try {
+            DB::table('password_otps')->where('email', $email)->delete();
+            DB::table('password_otps')->insert([
+                'email' => $email,
+                'otp' => $otp,
+                'expires_at' => \Carbon\Carbon::now()->addMinutes(15),
+                'created_at' => \Carbon\Carbon::now(),
+                'updated_at' => \Carbon\Carbon::now(),
+            ]);
+
+            DB::commit();
+
+            \Illuminate\Support\Facades\Mail::to($email)->send(new \App\Mail\SendRegistrationOtpMail($otp));
+
+            return back()->with('success', 'Kode OTP baru berhasil dikirimkan ke email Anda.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal mengirim ulang OTP: ' . $e->getMessage());
+        }
     }
 
     public function logout(Request $request)

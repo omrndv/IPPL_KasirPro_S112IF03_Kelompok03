@@ -312,6 +312,7 @@
                                 <th scope="col" class="px-6 py-4">Telepon</th>
                                 <th scope="col" class="px-6 py-4">Alamat</th>
                                 <th scope="col" class="px-6 py-4">Tanggal Dibuat</th>
+                                <th scope="col" class="px-6 py-4 text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
@@ -322,10 +323,37 @@
                                 <td class="px-6 py-4 text-sm font-semibold text-slate-700">{{ $out->phone ?? '-' }}</td>
                                 <td class="px-6 py-4 text-sm text-slate-500 max-w-xs truncate" title="{{ $out->address }}">{{ $out->address ?? '-' }}</td>
                                 <td class="px-6 py-4 text-xs font-semibold text-slate-400">{{ $out->created_at ? $out->created_at->format('d M Y') : '-' }}</td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <!-- Action: Edit -->
+                                        <button type="button" 
+                                            class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" 
+                                            title="Edit Outlet" 
+                                            data-modal-target="edit-outlet-modal" 
+                                            data-modal-toggle="edit-outlet-modal"
+                                            onclick="editOutlet({{ $out->id }}, '{{ addslashes($out->name) }}', '{{ addslashes($out->phone) }}', '{{ addslashes($out->address) }}')">
+                                            <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+
+                                        <!-- Action: Delete -->
+                                        <button type="button" 
+                                            class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition hover:bg-rose-600 hover:text-white" 
+                                            title="Hapus Outlet" 
+                                            data-modal-target="delete-outlet-modal" 
+                                            data-modal-toggle="delete-outlet-modal"
+                                            onclick="deleteOutlet({{ $out->id }}, '{{ addslashes($out->name) }}')">
+                                            <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="5" class="px-6 py-12 text-center text-slate-400 font-semibold">
+                                <td colspan="6" class="px-6 py-12 text-center text-slate-400 font-semibold">
                                     Tidak ada data outlet.
                                 </td>
                             </tr>
@@ -592,6 +620,84 @@
     </div>
 </div>
 
+<!-- ============================================== -->
+<!-- MODAL: EDIT OUTLET -->
+<!-- ============================================== -->
+<div id="edit-outlet-modal" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-950/40 backdrop-blur-sm md:inset-0">
+    <div class="relative max-h-full w-full max-w-md p-4">
+        <div class="relative rounded-[2rem] border border-white bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-100 p-5">
+                <div>
+                    <h3 class="text-lg font-black text-slate-950">Edit Data Outlet</h3>
+                    <p class="mt-1 text-sm font-semibold text-slate-400">Ubah informasi outlet yang sudah terdaftar.</p>
+                </div>
+                <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-950" data-modal-hide="edit-outlet-modal">
+                    <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="edit-outlet-form" action="" method="POST" class="p-5">
+                @csrf
+                @method('PUT')
+                <div class="space-y-4">
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-slate-950">Nama Outlet</label>
+                        <input type="text" name="name" id="edit-outlet-name" required class="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-slate-950">Nomor Telepon</label>
+                        <input type="text" name="phone" id="edit-outlet-phone" class="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-slate-950">Alamat Outlet</label>
+                        <textarea name="address" id="edit-outlet-address" rows="3" class="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-5">
+                    <button data-modal-hide="edit-outlet-modal" type="button" class="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 transition">Batal</button>
+                    <button type="submit" class="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-white hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAL: DELETE OUTLET CONFIRMATION -->
+<!-- ============================================== -->
+<div id="delete-outlet-modal" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-950/40 backdrop-blur-sm md:inset-0">
+    <div class="relative max-h-full w-full max-w-md p-4">
+        <div class="relative rounded-[2rem] border border-white bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-100 p-5">
+                <h3 class="text-lg font-black text-slate-950">Konfirmasi Hapus Outlet</h3>
+                <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-950" data-modal-hide="delete-outlet-modal">
+                    <svg class="h-3.5 w-3.5" aria-hidden="true" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6 text-center">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-3xl">⚠️</div>
+                <h3 class="mb-5 text-lg font-bold text-slate-600">Apakah Anda yakin ingin menghapus outlet <span id="delete-outlet-target" class="font-black text-rose-600"></span>?</h3>
+                <p class="mb-6 text-xs font-semibold text-slate-400">Tindakan ini tidak dapat dibatalkan. Anda tidak dapat menghapus outlet jika masih terdapat pengguna yang terhubung.</p>
+                
+                <form id="delete-outlet-form" action="" method="POST" class="flex justify-center gap-3">
+                    @csrf
+                    @method('DELETE')
+                    <button data-modal-hide="delete-outlet-modal" type="button" class="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 transition">Batal</button>
+                    <button type="submit" class="rounded-2xl bg-rose-600 px-5 py-3 text-sm font-black text-white hover:bg-rose-700 transition">Ya, Hapus Outlet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // Toggle outlet field in user creation modal depending on role selection
     function toggleAddOutletSelect() {
@@ -649,6 +755,20 @@
     function deleteUser(id, name) {
         document.getElementById('delete-user-form').action = '/superadmin/users/' + id;
         document.getElementById('delete-user-target').innerText = name;
+    }
+
+    // Populate and open outlet edit modal
+    function editOutlet(id, name, phone, address) {
+        document.getElementById('edit-outlet-form').action = '/superadmin/outlets/' + id;
+        document.getElementById('edit-outlet-name').value = name;
+        document.getElementById('edit-outlet-phone').value = phone;
+        document.getElementById('edit-outlet-address').value = address;
+    }
+
+    // Populate and open delete outlet confirmation modal
+    function deleteOutlet(id, name) {
+        document.getElementById('delete-outlet-form').action = '/superadmin/outlets/' + id;
+        document.getElementById('delete-outlet-target').innerText = name;
     }
 
     // Initialize toggle functions on load

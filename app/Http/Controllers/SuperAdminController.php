@@ -183,4 +183,38 @@ class SuperAdminController extends Controller
 
         return redirect()->back()->with('success', 'Outlet baru berhasil ditambahkan!');
     }
+
+    public function updateOutlet(Request $request, $id)
+    {
+        $outlet = Outlet::findOrFail($id);
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $outlet->update([
+            'name' => $request->name,
+            'address' => $request->address,
+            'phone' => $request->phone,
+        ]);
+
+        return redirect()->back()->with('success', 'Outlet berhasil diperbarui!');
+    }
+
+    public function destroyOutlet($id)
+    {
+        $outlet = Outlet::findOrFail($id);
+
+        // Check if there are users connected to this outlet
+        $connectedUsers = User::where('outlet_id', $outlet->id)->count();
+        if ($connectedUsers > 0) {
+            return redirect()->back()->with('error', 'Gagal menghapus outlet. Masih terdapat ' . $connectedUsers . ' pengguna yang terhubung ke outlet ini.');
+        }
+
+        $outlet->delete();
+
+        return redirect()->back()->with('success', 'Outlet berhasil dihapus.');
+    }
 }

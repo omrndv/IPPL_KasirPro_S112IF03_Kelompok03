@@ -19,6 +19,11 @@ Route::middleware('guest')->group(function () {
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
 
+    // --- VERIFIKASI PENDAFTARAN VIA EMAIL OTP ---
+    Route::get('/verify-registration', [AuthController::class, 'showVerifyRegister'])->name('register.verify');
+    Route::post('/verify-registration', [AuthController::class, 'verifyRegister'])->name('register.confirm');
+    Route::post('/resend-registration-otp', [AuthController::class, 'resendRegisterOtp'])->name('register.resend');
+
     // --- LUPA PASSWORD VIA EMAIL OTP ---
     Route::get('/forgot-password', [App\Http\Controllers\ForgotPasswordController::class, 'showForgotPassword'])->name('password.request');
     Route::post('/forgot-password', [App\Http\Controllers\ForgotPasswordController::class, 'sendOtp'])->name('password.email');
@@ -33,34 +38,36 @@ Route::middleware('guest')->group(function () {
 // 3. Akses User Terdaftar / Sudah Login (Auth)
 Route::middleware('auth')->group(function () {
 
-    // --- RUTE PRODUK ---
-    Route::get('/produk', [App\Http\Controllers\ProductController::class, 'index'])->name('produk.index');
-    Route::post('/produk', [App\Http\Controllers\ProductController::class, 'store'])->name('produk.store');
-    Route::put('/produk/{id}', [App\Http\Controllers\ProductController::class, 'update'])->name('produk.update');
-    Route::delete('/produk/{id}', [App\Http\Controllers\ProductController::class, 'destroy'])->name('produk.destroy');
+    // --- RUTE PROTECTED (OWNER & ADMIN) ---
+    Route::middleware([\App\Http\Middleware\OwnerOrAdminMiddleware::class])->group(function () {
+        // --- RUTE PRODUK ---
+        Route::get('/produk', [App\Http\Controllers\ProductController::class, 'index'])->name('produk.index');
+        Route::post('/produk', [App\Http\Controllers\ProductController::class, 'store'])->name('produk.store');
+        Route::put('/produk/{id}', [App\Http\Controllers\ProductController::class, 'update'])->name('produk.update');
+        Route::delete('/produk/{id}', [App\Http\Controllers\ProductController::class, 'destroy'])->name('produk.destroy');
 
-    // --- RUTE KATEGORI ---
-    Route::post('/kategori', [App\Http\Controllers\CategoryController::class, 'store'])->name('kategori.store');
+        // --- RUTE KATEGORI ---
+        Route::post('/kategori', [App\Http\Controllers\CategoryController::class, 'store'])->name('kategori.store');
 
-    // --- RUTE BAHAN BAKU ---
-    Route::get('/bahan-baku', [App\Http\Controllers\RawMaterialController::class, 'index'])->name('bahan.index');
-    Route::post('/bahan-baku', [App\Http\Controllers\RawMaterialController::class, 'store'])->name('bahan.store');
-    Route::put('/bahan-baku/{id}', [App\Http\Controllers\RawMaterialController::class, 'update'])->name('bahan.update');
-    Route::delete('/bahan-baku/{id}', [App\Http\Controllers\RawMaterialController::class, 'destroy'])->name('bahan.destroy');
+        // --- RUTE BAHAN BAKU ---
+        Route::get('/bahan-baku', [App\Http\Controllers\RawMaterialController::class, 'index'])->name('bahan.index');
+        Route::post('/bahan-baku', [App\Http\Controllers\RawMaterialController::class, 'store'])->name('bahan.store');
+        Route::put('/bahan-baku/{id}', [App\Http\Controllers\RawMaterialController::class, 'update'])->name('bahan.update');
+        Route::delete('/bahan-baku/{id}', [App\Http\Controllers\RawMaterialController::class, 'destroy'])->name('bahan.destroy');
+        Route::post('/bahan-baku/{id}/add-stock', [App\Http\Controllers\RawMaterialController::class, 'addStock'])->name('bahan.addStock');
 
-    // Rute Khusus Quick Restock
-    Route::post('/bahan-baku/{id}/add-stock', [App\Http\Controllers\RawMaterialController::class, 'addStock'])->name('bahan.addStock');
+        // --- RUTE LAPORAN (ANALYTICS) ---
+        Route::get('/laporan', [App\Http\Controllers\AnalyticsController::class, 'laporan'])->name('analytics.laporan');
+        Route::get('/laporan/export', [App\Http\Controllers\AnalyticsController::class, 'exportCsv'])->name('analytics.export');
+    });
 
-    // --- RUTE TRANSAKSI KASIR ---
+    // --- RUTE TRANSAKSI KASIR (KASIR, OWNER, ADMIN) ---
     Route::get('/transaksi', [App\Http\Controllers\PosController::class, 'index'])->name('pos.index');
     Route::post('/transaksi/checkout', [App\Http\Controllers\PosController::class, 'checkout'])->name('pos.checkout');
 
-    // --- RUTE ANALYTICS (LAPORAN & RIWAYAT) ---
+    // --- RUTE ANALYTICS RIWAYAT (KASIR, OWNER, ADMIN) ---
     Route::get('/riwayat', [App\Http\Controllers\AnalyticsController::class, 'riwayat'])->name('analytics.riwayat');
-    Route::get('/laporan', [App\Http\Controllers\AnalyticsController::class, 'laporan'])->name('analytics.laporan');
-
-    // RUTE BARU UNTUK EXPORT
-    Route::get('/laporan/export', [App\Http\Controllers\AnalyticsController::class, 'exportCsv'])->name('analytics.export');
+    Route::delete('/riwayat/{id}', [App\Http\Controllers\AnalyticsController::class, 'destroy'])->name('analytics.riwayat.destroy');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -72,12 +79,18 @@ Route::middleware('auth')->group(function () {
         Route::delete('/superadmin/users/{id}', [\App\Http\Controllers\SuperAdminController::class, 'destroyUser'])->name('superadmin.users.destroy');
         Route::put('/superadmin/users/{id}/password', [\App\Http\Controllers\SuperAdminController::class, 'resetUserPassword'])->name('superadmin.users.password');
         Route::post('/superadmin/outlets', [\App\Http\Controllers\SuperAdminController::class, 'storeOutlet'])->name('superadmin.outlets.store');
+        Route::put('/superadmin/outlets/{id}', [\App\Http\Controllers\SuperAdminController::class, 'updateOutlet'])->name('superadmin.outlets.update');
+        Route::delete('/superadmin/outlets/{id}', [\App\Http\Controllers\SuperAdminController::class, 'destroyOutlet'])->name('superadmin.outlets.destroy');
     });
     
-    Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
-    Route::put('/pengaturan/profil', [SettingController::class, 'updateProfile'])->name('settings.profile.update');
-    Route::put('/pengaturan/toko', [SettingController::class, 'updateStore'])->name('settings.store.update');
-    Route::put('/pengaturan/struk', [SettingController::class, 'updateReceipt'])->name('settings.receipt.update');
+    // --- RUTE PENGATURAN (OWNER SAJA) ---
+    Route::middleware([\App\Http\Middleware\OwnerMiddleware::class])->group(function () {
+        Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
+        Route::put('/pengaturan/profil', [SettingController::class, 'updateProfile'])->name('settings.profile.update');
+        Route::put('/pengaturan/toko', [SettingController::class, 'updateStore'])->name('settings.store.update');
+        Route::put('/pengaturan/struk', [SettingController::class, 'updateReceipt'])->name('settings.receipt.update');
+    });
+    
     // Proses Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });
