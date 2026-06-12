@@ -12,21 +12,36 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        $outletId = auth()->user()->outlet_id;
+
         $today = Carbon::today();
+
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
+
         $startOfLastMonth = Carbon::now()->subMonth()->startOfMonth();
         $endOfLastMonth = Carbon::now()->subMonth()->endOfMonth();
 
-        $totalTransactions = Transaction::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
-        $lastMonthTransactions = Transaction::whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])->count();
+        $totalTransactions = Transaction::where('outlet_id', $outletId)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->count();
 
-        $totalRevenue = Transaction::whereBetween('created_at', [$startOfMonth, $endOfMonth])->sum('grand_total');
-        $lastMonthRevenue = Transaction::whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])->sum('grand_total');
+        $lastMonthTransactions = Transaction::where('outlet_id', $outletId)
+            ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
+            ->count();
 
-        $totalHpp = TransactionDetail::whereHas('transaction', function ($query) use ($startOfMonth, $endOfMonth) {
-            $query->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
-        })
+        $totalRevenue = Transaction::where('outlet_id', $outletId)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->sum('grand_total');
+
+        $lastMonthRevenue = Transaction::where('outlet_id', $outletId)
+            ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
+            ->sum('grand_total');
+
+        $totalHpp = TransactionDetail::whereHas('transaction', function ($query) use ($startOfMonth, $endOfMonth, $outletId) {
+                $query->where('outlet_id', $outletId)
+                    ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+            })
             ->with('product')
             ->get()
             ->sum(function ($detail) {
@@ -34,29 +49,35 @@ class DashboardController extends Controller
             });
 
         $netProfit = $totalRevenue - $totalHpp;
-        $profitMargin = $totalRevenue > 0 ? ($netProfit / $totalRevenue) * 100 : 0;
+
+        $profitMargin = $totalRevenue > 0
+            ? ($netProfit / $totalRevenue) * 100
+            : 0;
 
         $transactionGrowth = $this->calculateGrowth($totalTransactions, $lastMonthTransactions);
         $revenueGrowth = $this->calculateGrowth($totalRevenue, $lastMonthRevenue);
 
-        $salesChart = collect(range(6, 0))->map(function ($day) {
+        $salesChart = collect(range(6, 0))->map(function ($day) use ($outletId) {
             $date = Carbon::today()->subDays($day);
 
             return [
                 'label' => $date->format('D'),
-                'value' => Transaction::whereDate('created_at', $date)->sum('grand_total'),
+                'value' => Transaction::where('outlet_id', $outletId)
+                    ->whereDate('created_at', $date)
+                    ->sum('grand_total'),
             ];
         });
 
         $maxChartValue = max($salesChart->max('value'), 1);
 
         $topProducts = TransactionDetail::select(
-            'product_name',
-            DB::raw('SUM(qty) as total_qty'),
-            DB::raw('SUM(subtotal) as total_revenue')
-        )
-            ->whereHas('transaction', function ($query) use ($startOfMonth, $endOfMonth) {
-                $query->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
+                'product_name',
+                DB::raw('SUM(qty) as total_qty'),
+                DB::raw('SUM(subtotal) as total_revenue')
+            )
+            ->whereHas('transaction', function ($query) use ($startOfMonth, $endOfMonth, $outletId) {
+                $query->where('outlet_id', $outletId)
+                    ->whereBetween('created_at', [$startOfMonth, $endOfMonth]);
             })
             ->groupBy('product_name')
             ->orderByDesc('total_revenue')
@@ -64,6 +85,7 @@ class DashboardController extends Controller
             ->get();
 
         $paymentMethods = Transaction::select('payment_method', DB::raw('COUNT(*) as total'))
+            ->where('outlet_id', $outletId)
             ->whereDate('created_at', $today)
             ->groupBy('payment_method')
             ->get();
@@ -71,7 +93,7 @@ class DashboardController extends Controller
         $totalPaymentToday = max($paymentMethods->sum('total'), 1);
 
         $paymentStats = collect(['qris', 'cash', 'card'])->map(function ($method) use ($paymentMethods, $totalPaymentToday) {
-            $total = $paymentMethods->firstWhere('payment_method', $method)->total ?? 0;
+            $total = optional($paymentMethods->firstWhere('payment_method', $method))->total ?? 0;
 
             return [
                 'method' => strtoupper($method),
@@ -81,12 +103,16 @@ class DashboardController extends Controller
         });
 
         $recentTransactions = Transaction::with('details')
+            ->where('outlet_id', $outletId)
             ->latest()
             ->take(3)
             ->get();
 
-        $totalProducts = Product::count();
-        $lowStockProducts = Product::where('stock', '<=', 5)->count();
+        $totalProducts = Product::where('outlet_id', $outletId)->count();
+
+        $lowStockProducts = Product::where('outlet_id', $outletId)
+            ->where('stock', '<=', 5)
+            ->count();
 
         return view('dashboard', compact(
             'totalTransactions',

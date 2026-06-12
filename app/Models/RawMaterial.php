@@ -10,6 +10,7 @@ class RawMaterial extends Model
     use HasFactory;
 
     protected $fillable = [
+        'outlet_id',
         'name',
         'category',
         'stock',

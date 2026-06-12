@@ -45,7 +45,7 @@
         </main>
 
         <footer class="py-5 text-center text-sm font-semibold text-slate-400">
-            &copy; 2026 KasirPro
+            &copy; 2026 KasirPro · {{ auth()->user()->outlet->name ?? 'Outlet' }}
         </footer>
     </div>
 

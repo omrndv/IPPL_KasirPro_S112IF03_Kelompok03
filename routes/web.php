@@ -18,6 +18,16 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
+
+    // --- LUPA PASSWORD VIA EMAIL OTP ---
+    Route::get('/forgot-password', [App\Http\Controllers\ForgotPasswordController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [App\Http\Controllers\ForgotPasswordController::class, 'sendOtp'])->name('password.email');
+
+    Route::get('/verify-otp', [App\Http\Controllers\ForgotPasswordController::class, 'showVerifyOtp'])->name('password.verify');
+    Route::post('/verify-otp', [App\Http\Controllers\ForgotPasswordController::class, 'verifyOtp'])->name('password.confirm');
+
+    Route::get('/reset-password', [App\Http\Controllers\ForgotPasswordController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [App\Http\Controllers\ForgotPasswordController::class, 'resetPassword'])->name('password.update');
 });
 
 // 3. Akses User Terdaftar / Sudah Login (Auth)
@@ -53,6 +63,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/laporan/export', [App\Http\Controllers\AnalyticsController::class, 'exportCsv'])->name('analytics.export');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // --- RUTE SUPERADMIN ---
+    Route::middleware([\App\Http\Middleware\SuperAdminMiddleware::class])->group(function () {
+        Route::get('/superadmin/dashboard', [\App\Http\Controllers\SuperAdminController::class, 'index'])->name('superadmin.dashboard');
+        Route::post('/superadmin/users', [\App\Http\Controllers\SuperAdminController::class, 'storeUser'])->name('superadmin.users.store');
+        Route::put('/superadmin/users/{id}', [\App\Http\Controllers\SuperAdminController::class, 'updateUser'])->name('superadmin.users.update');
+        Route::delete('/superadmin/users/{id}', [\App\Http\Controllers\SuperAdminController::class, 'destroyUser'])->name('superadmin.users.destroy');
+        Route::put('/superadmin/users/{id}/password', [\App\Http\Controllers\SuperAdminController::class, 'resetUserPassword'])->name('superadmin.users.password');
+        Route::post('/superadmin/outlets', [\App\Http\Controllers\SuperAdminController::class, 'storeOutlet'])->name('superadmin.outlets.store');
+    });
     
     Route::get('/pengaturan', [SettingController::class, 'index'])->name('settings.index');
     Route::put('/pengaturan/profil', [SettingController::class, 'updateProfile'])->name('settings.profile.update');

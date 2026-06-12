@@ -223,7 +223,7 @@
                             <div>
                                 <div class="mb-2 flex items-center justify-between gap-3">
                                     <label for="password" class="block text-sm font-bold text-ink">Password</label>
-                                    <a href="#" class="text-sm font-bold text-brand-600 transition hover:text-brand-800">Lupa?</a>
+                                    <a href="{{ route('password.request') }}" class="text-sm font-bold text-brand-600 transition hover:text-brand-800">Lupa?</a>
                                 </div>
                                 <div class="relative">
                                     <input type="password" name="password" id="password" class="form-input block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 pr-12 text-sm font-semibold text-ink outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:bg-white" placeholder="••••••••" required>

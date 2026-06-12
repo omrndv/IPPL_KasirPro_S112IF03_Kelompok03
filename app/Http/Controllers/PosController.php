@@ -6,42 +6,50 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\Setting;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PosController extends Controller
 {
-    // 1. Menampilkan Halaman Kasir (UI)
     public function index(Request $request)
     {
-        // Ambil semua kategori untuk filter tombol di atas
-        $categories = Category::all();
+        $outletId = auth()->user()->outlet_id;
 
-        // Ambil produk, bisa difilter berdasarkan pencarian atau klik kategori
-        $query = Product::where('stock', '>', 0); // Hanya tampilkan yang stoknya ada!
+        $categories = Category::where('outlet_id', $outletId)
+            ->latest()
+            ->get();
 
-        if ($request->search) {
+        $query = Product::where('outlet_id', $outletId)
+            ->where('stock', '>', 0)
+            ->latest();
+
+        if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
         }
-        if ($request->category_id) {
+
+        if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
 
         $products = $query->get();
 
-        return view('transaksi', compact('products', 'categories'));
+        $settings = Setting::getAllAsArray();
+
+        return view('transaksi', compact('products', 'categories', 'settings'));
     }
 
     public function checkout(Request $request)
     {
+        $outletId = auth()->user()->outlet_id;
+
         $request->validate([
             'cart' => 'required|array',
-            'cart.*.id' => 'required|exists:products,id',
+            'cart.*.id' => 'required|integer',
             'cart.*.qty' => 'required|integer|min:1',
             'pay_amount' => 'required|numeric|min:0',
-            'payment_method' => 'required|string'
+            'payment_method' => 'required|string',
         ]);
 
         DB::beginTransaction();
@@ -51,21 +59,25 @@ class PosController extends Controller
             $details = [];
 
             foreach ($request->cart as $item) {
-                $product = Product::lockForUpdate()->find($item['id']);
+                $product = Product::where('outlet_id', $outletId)
+                    ->lockForUpdate()
+                    ->find($item['id']);
 
                 if (!$product) {
-                    throw new \Exception('Produk tidak ditemukan.');
+                    throw new \Exception('Produk tidak ditemukan di outlet kamu.');
                 }
 
-                if ($product->stock < $item['qty']) {
+                if ($product->is_stock_tracked && $product->stock < $item['qty']) {
                     throw new \Exception("Stok untuk {$product->name} tidak mencukupi! Sisa: {$product->stock}");
                 }
 
                 $itemSubtotal = $product->selling_price * $item['qty'];
                 $subtotal += $itemSubtotal;
 
-                $product->stock -= $item['qty'];
-                $product->save();
+                if ($product->is_stock_tracked) {
+                    $product->stock -= $item['qty'];
+                    $product->save();
+                }
 
                 $details[] = [
                     'product_id' => $product->id,
@@ -95,13 +107,14 @@ class PosController extends Controller
             }
 
             $transaction = Transaction::create([
+                'outlet_id' => $outletId,
                 'invoice_no' => $invoiceNo,
                 'subtotal' => $subtotal,
                 'tax' => $tax,
                 'grand_total' => $grandTotal,
                 'payment_method' => $request->payment_method,
                 'pay_amount' => $request->pay_amount,
-                'return_amount' => $request->pay_amount - $grandTotal
+                'return_amount' => $request->pay_amount - $grandTotal,
             ]);
 
             foreach ($details as &$detail) {
@@ -130,9 +143,9 @@ class PosController extends Controller
                 'created_at' => $transaction->created_at->format('d M Y, H:i'),
                 'items' => $transaction->details,
                 'settings' => [
-                    'store_name' => $settings['store_name'] ?? 'KasirPro',
-                    'store_phone' => $settings['store_phone'] ?? '-',
-                    'store_address' => $settings['store_address'] ?? 'Alamat toko belum diatur',
+                    'store_name' => auth()->user()->outlet->name ?? 'KasirPro',
+                    'store_phone' => auth()->user()->outlet->phone ?? '-',
+                    'store_address' => auth()->user()->outlet->address ?? 'Alamat toko belum diatur',
                     'tax_rate' => $settings['tax_rate'] ?? $taxRate,
                     'receipt_footer' => $settings['receipt_footer'] ?? 'Terima kasih atas kunjungannya!',
                 ],
@@ -142,7 +155,7 @@ class PosController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         }
     }

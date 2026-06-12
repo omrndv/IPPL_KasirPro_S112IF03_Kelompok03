@@ -125,14 +125,14 @@
                         <td class="px-6 py-4 text-center">
                             @if ($product->stock <= 5)
                                 <span class="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-black text-rose-600">Menipis</span>
-                                @else
+                            @else
                                 <span class="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600">Aman</span>
-                                @endif
+                            @endif
                         </td>
 
                         <td class="px-6 py-4">
                             <div class="flex items-center justify-center gap-2">
-                                <button type="button" class="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" title="Edit" data-modal-target="edit-modal" data-modal-toggle="edit-modal" onclick="editProduct({{ $product->id }}, '{{ addslashes($product->name) }}', '{{ addslashes($product->sku) }}', '{{ $product->category_id }}', {{ $product->cost_price }}, {{ $product->selling_price }}, {{ $product->stock }})">
+                                <button type="button" class="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" title="Edit" data-modal-target="edit-modal" data-modal-toggle="edit-modal" onclick="editProduct({{ $product->id }}, '{{ addslashes($product->name) }}', '{{ addslashes($product->sku) }}', '{{ $product->category_id }}', {{ $product->cost_price }}, {{ $product->selling_price }}, {{ $product->stock }}, '{{ $product->unit }}', {{ $product->is_stock_tracked ? 'true' : 'false' }})">
                                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
@@ -238,6 +238,13 @@
                             <input type="number" name="selling_price" id="selling_price" class="block w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="15000" required>
                         </div>
                     </div>
+
+                    <div class="col-span-2">
+                        <label class="flex items-center gap-2 cursor-pointer mt-2">
+                            <input type="checkbox" name="is_stock_tracked" value="1" checked class="w-4 h-4 text-blue-600 bg-slate-50 border-slate-200 rounded focus:ring-blue-500 focus:ring-2">
+                            <span class="text-sm font-bold text-slate-950">Lacak Stok untuk Produk Ini</span>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-5">
@@ -303,6 +310,7 @@
             <form id="edit-form" class="p-5" action="" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
+                <input type="hidden" name="unit" id="edit-unit">
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2 sm:col-span-1">
@@ -342,6 +350,13 @@
                     <div class="col-span-2">
                         <label class="mb-2 block text-sm font-bold text-slate-950">Ganti Foto <span class="text-slate-400">(Kosongkan jika tidak diganti)</span></label>
                         <input class="block w-full cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-600 file:mr-4 file:border-0 file:bg-slate-950 file:px-4 file:py-3 file:text-sm file:font-black file:text-white focus:outline-none" name="image" type="file" accept="image/*">
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="flex items-center gap-2 cursor-pointer mt-2">
+                            <input type="checkbox" name="is_stock_tracked" id="edit-stock-tracked" value="1" class="w-4 h-4 text-blue-600 bg-slate-50 border-slate-200 rounded focus:ring-blue-500 focus:ring-2">
+                            <span class="text-sm font-bold text-slate-950">Lacak Stok untuk Produk Ini</span>
+                        </label>
                     </div>
                 </div>
 
@@ -392,7 +407,7 @@
 </div>
 
 <script>
-    function editProduct(id, name, sku, category_id, cost, sell, stock) {
+    function editProduct(id, name, sku, category_id, cost, sell, stock, unit, isTracked) {
         document.getElementById('edit-form').action = '/produk/' + id;
         document.getElementById('edit-name').value = name;
         document.getElementById('edit-sku').value = sku;
@@ -400,6 +415,8 @@
         document.getElementById('edit-cost').value = cost;
         document.getElementById('edit-sell').value = sell;
         document.getElementById('edit-stock').value = stock;
+        document.getElementById('edit-unit').value = unit || 'Pcs';
+        document.getElementById('edit-stock-tracked').checked = isTracked;
     }
 
     function deleteProduct(id, name) {

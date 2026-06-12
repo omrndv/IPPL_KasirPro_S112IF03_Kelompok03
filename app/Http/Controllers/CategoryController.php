@@ -4,25 +4,33 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
 {
-    // Fungsi untuk menyimpan kategori baru
     public function store(Request $request)
     {
-        // Validasi input
+        $outletId = auth()->user()->outlet_id;
+
         $request->validate([
-            'name' => 'required|string|max:255|unique:categories,name'
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('categories', 'name')->where(function ($query) use ($outletId) {
+                    return $query->where('outlet_id', $outletId);
+                }),
+            ],
         ], [
-            'name.unique' => 'Kategori ini sudah ada, silakan buat yang lain.'
+            'name.unique' => 'Kategori ini sudah ada di outlet kamu, silakan buat yang lain.',
         ]);
 
-        // Simpan ke database
         Category::create([
-            'name' => $request->name
+            'outlet_id' => $outletId,
+            'name' => $request->name,
+            'description' => $request->description ?? null,
         ]);
 
-        // Kembali ke halaman sebelumnya dengan pesan sukses
         return redirect()->back()->with('success', 'Kategori "' . $request->name . '" berhasil ditambahkan!');
     }
 }

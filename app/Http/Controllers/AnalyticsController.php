@@ -3,51 +3,60 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
-use App\Models\TransactionDetail;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use App\Models\Setting;
 
 class AnalyticsController extends Controller
 {
     public function riwayat()
     {
-        $transactions = Transaction::with('details')->latest()->get();
-        $settings = Setting::getAllAsArray();
+        $outletId = auth()->user()->outlet_id;
 
-        return view('riwayat', compact('transactions', 'settings'));
+        $transactions = Transaction::with('details')
+            ->where('outlet_id', $outletId)
+            ->latest()
+            ->get();
+
+        $settings = Setting::getAllAsArray();
+        $outlet = auth()->user()->outlet;
+
+        return view('riwayat', compact('transactions', 'settings', 'outlet'));
     }
 
-    // 2. Halaman Laba & Rugi (DENGAN FILTER RENTANG TANGGAL)
     public function laporan(Request $request)
     {
-        // Default: Dari awal bulan ini, sampai hari ini
+        $outletId = auth()->user()->outlet_id;
+
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
 
-        // Konversi ke format jam agar mencakup 1 hari penuh (00:00:00 - 23:59:59)
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->endOfDay();
 
-        // A. Total Pendapatan Kotor
-        $pendapatan = Transaction::whereBetween('created_at', [$start, $end])->sum('subtotal');
+        $pendapatan = Transaction::where('outlet_id', $outletId)
+            ->whereBetween('created_at', [$start, $end])
+            ->sum('subtotal');
 
-        // B. Total Pajak Terkumpul
-        $pajak = Transaction::whereBetween('created_at', [$start, $end])->sum('tax');
+        $pajak = Transaction::where('outlet_id', $outletId)
+            ->whereBetween('created_at', [$start, $end])
+            ->sum('tax');
 
-        // C. Menghitung HPP (Modal Barang)
         $hpp = DB::table('transaction_details')
             ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
             ->join('products', 'transaction_details.product_id', '=', 'products.id')
+            ->where('transactions.outlet_id', $outletId)
             ->whereBetween('transactions.created_at', [$start, $end])
             ->sum(DB::raw('products.cost_price * transaction_details.qty'));
 
-        // D. Laba Bersih
         $labaBersih = $pendapatan - $hpp;
 
-        // E. Data Grafik (Rekap Harian dalam rentang tanggal)
-        $transactionsInRange = Transaction::select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(subtotal) as total'))
+        $transactionsInRange = Transaction::select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('SUM(subtotal) as total')
+            )
+            ->where('outlet_id', $outletId)
             ->whereBetween('created_at', [$start, $end])
             ->groupBy('date')
             ->orderBy('date', 'ASC')
@@ -56,12 +65,17 @@ class AnalyticsController extends Controller
         $chartLabels = $transactionsInRange->pluck('date')->map(function ($date) {
             return Carbon::parse($date)->format('d M');
         })->toArray();
+
         $chartData = $transactionsInRange->pluck('total')->toArray();
 
-        // F. Produk Terlaris
         $topProducts = DB::table('transaction_details')
             ->join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
-            ->select('product_name', DB::raw('SUM(qty) as total_qty'), DB::raw('SUM(transaction_details.subtotal) as total_revenue'))
+            ->select(
+                'product_name',
+                DB::raw('SUM(qty) as total_qty'),
+                DB::raw('SUM(transaction_details.subtotal) as total_revenue')
+            )
+            ->where('transactions.outlet_id', $outletId)
             ->whereBetween('transactions.created_at', [$start, $end])
             ->groupBy('product_name')
             ->orderByDesc('total_qty')
@@ -81,30 +95,42 @@ class AnalyticsController extends Controller
         ));
     }
 
-    // 3. Fungsi EXPORT CSV (DENGAN RENTANG TANGGAL)
     public function exportCsv(Request $request)
     {
+        $outletId = auth()->user()->outlet_id;
+
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
 
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->endOfDay();
 
-        $transactions = Transaction::whereBetween('created_at', [$start, $end])->get();
+        $transactions = Transaction::where('outlet_id', $outletId)
+            ->whereBetween('created_at', [$start, $end])
+            ->latest()
+            ->get();
 
         $filename = "Laporan_KasirPro_{$startDate}_sampai_{$endDate}.csv";
 
         $handle = fopen('php://output', 'w');
+
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
 
-        // Header Kolom Excel
-        fputcsv($handle, ['Invoice No', 'Tanggal Transaksi', 'Metode Pembayaran', 'Omzet / Subtotal (Rp)', 'Pajak (Rp)', 'Modal / HPP (Rp)', 'Laba Bersih (Rp)']);
+        fputcsv($handle, [
+            'Invoice No',
+            'Tanggal Transaksi',
+            'Metode Pembayaran',
+            'Omzet / Subtotal (Rp)',
+            'Pajak (Rp)',
+            'Modal / HPP (Rp)',
+            'Laba Bersih (Rp)'
+        ]);
 
         foreach ($transactions as $trx) {
             $hppTrx = DB::table('transaction_details')
                 ->join('products', 'transaction_details.product_id', '=', 'products.id')
-                ->where('transaction_id', $trx->id)
+                ->where('transaction_details.transaction_id', $trx->id)
                 ->sum(DB::raw('products.cost_price * transaction_details.qty'));
 
             fputcsv($handle, [
@@ -117,6 +143,7 @@ class AnalyticsController extends Controller
                 $trx->subtotal - $hppTrx
             ]);
         }
+
         fclose($handle);
         exit;
     }

@@ -3,56 +3,65 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Outlet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
-    // 1. Tampilkan Halaman Login
     public function showLogin()
     {
-        return view('login'); // Pastikan nama file blade Anda sesuai
+        return view('login');
     }
 
-    // 2. Tampilkan Halaman Register
     public function showRegister()
     {
-        return view('register'); // Pastikan nama file blade Anda sesuai
+        return view('register');
     }
 
-    // 3. Proses Pendaftaran (Register)
     public function register(Request $request)
     {
-        // Validasi input form
         $request->validate([
             'name' => 'required|string|max:255',
-            'username' => 'required|string|max:255|unique:users',
-            'email' => 'required|string|email|max:255|unique:users',
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
+        DB::beginTransaction();
+
         try {
-            // Proses simpan ke Database
+            $outlet = Outlet::create([
+                'name' => $request->name . ' Outlet',
+                'address' => null,
+                'phone' => null,
+            ]);
+
             $user = User::create([
                 'name' => $request->name,
                 'username' => $request->username,
                 'email' => $request->email,
-                'password' => Hash::make($request->password), // Enkripsi password
+                'password' => Hash::make($request->password),
+                'role' => 'owner',
+                'outlet_id' => $outlet->id,
             ]);
 
-            // Otomatiskan Login setelah berhasil daftar
+            DB::commit();
+
             Auth::login($user);
 
-            // Arahkan ke Dashboard
             return redirect()->route('dashboard')->with('success', 'Registrasi berhasil! Selamat datang.');
         } catch (\Exception $e) {
-            // JIKA GAGAL, TANGKAP ERRORNYA DAN TAMPILKAN DI FORM
-            return back()->with('error', 'Sistem Database Error: ' . $e->getMessage())->withInput();
+            DB::rollBack();
+
+            return back()
+                ->with('error', 'Sistem Database Error: ' . $e->getMessage())
+                ->withInput();
         }
     }
 
-    // 4. Proses Masuk (Login)
     public function login(Request $request)
     {
         $request->validate([
@@ -60,7 +69,6 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // Cek apakah user menggunakan Email atau Username
         $loginField = filter_var($request->username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
         $credentials = [
@@ -70,16 +78,43 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
+
+            /**
+             * Jaga-jaga untuk user lama yang belum punya outlet_id.
+             * Kalau semua user lama sudah kamu isi outlet_id lewat tinker, bagian ini tetap aman.
+             */
+            $user = Auth::user();
+
+            if ($user->isSuperAdmin()) {
+                return redirect()->route('superadmin.dashboard');
+            }
+
+            if (!$user->outlet_id) {
+                $outlet = Outlet::firstOrCreate([
+                    'name' => 'Outlet Utama',
+                ], [
+                    'address' => null,
+                    'phone' => null,
+                ]);
+
+                $user->update([
+                    'role' => $user->role ?? 'owner',
+                    'outlet_id' => $outlet->id,
+                ]);
+            }
+
             return redirect()->route('dashboard');
         }
 
-        return back()->with('error', 'Username/Email atau Password Anda salah.')->withInput();
+        return back()
+            ->with('error', 'Username/Email atau Password Anda salah.')
+            ->withInput();
     }
 
-    // 5. Proses Keluar (Logout)
     public function logout(Request $request)
     {
         Auth::logout();
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

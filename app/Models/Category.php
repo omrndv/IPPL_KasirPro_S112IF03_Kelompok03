@@ -9,7 +9,16 @@ class Category extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'description'];
+    protected $fillable = [
+        'outlet_id',
+        'name',
+        'description',
+    ];
+
+    public function outlet()
+    {
+        return $this->belongsTo(Outlet::class);
+    }
 
     // Relasi: Satu Kategori punya Banyak Produk
     public function products()

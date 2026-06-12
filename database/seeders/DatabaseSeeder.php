@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,11 +12,51 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Create a default outlet
+        $outlet = \App\Models\Outlet::create([
+            'name' => 'Outlet Utama',
+            'address' => 'Jl. Raya Utama No. 1, Bandung',
+            'phone' => '022-123456',
+        ]);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // 1. Super Admin
+        User::create([
+            'name' => 'Super Admin',
+            'username' => 'superadmin',
+            'email' => 'superadmin@kasirpro.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password'),
+            'role' => 'superadmin',
+            'outlet_id' => null,
+        ]);
+
+        // 2. Owner
+        User::create([
+            'name' => 'Owner KasirPro',
+            'username' => 'owner',
+            'email' => 'owner@kasirpro.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password'),
+            'role' => 'owner',
+            'outlet_id' => $outlet->id,
+        ]);
+
+        // 3. Admin
+        User::create([
+            'name' => 'Admin KasirPro',
+            'username' => 'admin',
+            'email' => 'admin@kasirpro.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password'),
+            'role' => 'admin',
+            'outlet_id' => $outlet->id,
+        ]);
+
+        // 4. Cashier
+        User::create([
+            'name' => 'Kasir Utama',
+            'username' => 'kasir',
+            'email' => 'kasir@kasirpro.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password'),
+            'role' => 'cashier',
+            'outlet_id' => $outlet->id,
         ]);
     }
 }

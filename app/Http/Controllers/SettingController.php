@@ -13,8 +13,9 @@ class SettingController extends Controller
     {
         $settings = Setting::getAllAsArray();
         $user = auth()->user();
+        $outlet = $user->outlet;
 
-        return view('pengaturan', compact('settings', 'user'));
+        return view('pengaturan', compact('settings', 'user', 'outlet'));
     }
 
     public function updateProfile(Request $request)
@@ -23,7 +24,12 @@ class SettingController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
             'password' => ['nullable', 'string', 'min:8'],
         ]);
 
@@ -41,15 +47,25 @@ class SettingController extends Controller
 
     public function updateStore(Request $request)
     {
+        $user = auth()->user();
+
         $validated = $request->validate([
             'store_name' => ['required', 'string', 'max:255'],
             'store_phone' => ['required', 'string', 'max:30'],
             'store_address' => ['required', 'string', 'max:500'],
         ]);
 
-        foreach ($validated as $key => $value) {
-            Setting::setValue($key, $value);
+        $outlet = $user->outlet;
+
+        if (!$outlet) {
+            return back()->with('error', 'Outlet untuk akun ini belum ditemukan.');
         }
+
+        $outlet->update([
+            'name' => $validated['store_name'],
+            'phone' => $validated['store_phone'],
+            'address' => $validated['store_address'],
+        ]);
 
         return back()->with('success', 'Informasi toko berhasil diperbarui.');
     }
