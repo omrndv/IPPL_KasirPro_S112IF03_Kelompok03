@@ -145,7 +145,7 @@
 
                                 <td class="px-6 py-4 text-center">
                                     <div class="flex items-center justify-center gap-2">
-                                        <button onclick="showInvoiceDetail('{{ $trx->invoice_no }}', '{{ \Carbon\Carbon::parse($trx->created_at)->format('d M Y, H:i') }}', '{{ $trx->payment_method }}', {{ $trx->subtotal }}, {{ $trx->tax }}, {{ $trx->grand_total }}, {{ $trx->pay_amount }}, {{ $trx->return_amount }}, {{ json_encode($trx->details) }})" data-modal-target="invoice-modal" data-modal-toggle="invoice-modal" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" title="Lihat Struk">
+                                        <button onclick="showInvoiceDetail('{{ $trx->invoice_no }}', '{{ \Carbon\Carbon::parse($trx->created_at)->format('d M Y, H:i') }}', '{{ $trx->payment_method }}', {{ $trx->subtotal }}, {{ $trx->discount }}, {{ $trx->tax }}, {{ $trx->grand_total }}, {{ $trx->pay_amount }}, {{ $trx->return_amount }}, {{ json_encode($trx->details) }})" data-modal-target="invoice-modal" data-modal-toggle="invoice-modal" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition hover:bg-blue-600 hover:text-white" title="Lihat Struk">
                                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                             </svg>
@@ -211,8 +211,12 @@
                             <p>Subtotal</p>
                             <p id="modal-subtotal"></p>
                         </div>
+                        <div id="modal-discount-row" class="hidden justify-between font-semibold text-rose-500">
+                            <p>Diskon</p>
+                            <p id="modal-discount"></p>
+                        </div>
                         <div class="flex justify-between font-semibold text-slate-500">
-                            <p>Tax ({{ $taxRate }}%)</p>
+                            <p id="modal-tax-label">Tax ({{ $taxRate }}%)</p>
                             <p id="modal-tax"></p>
                         </div>
                         <div class="mt-3 flex justify-between border-t border-slate-100 pt-3 text-base font-black text-slate-950">
@@ -254,15 +258,32 @@
             minimumFractionDigits: 0
         }).format(number);
 
-        function showInvoiceDetail(inv, date, method, subtotal, tax, grand, pay, returnAmount, items) {
+        function showInvoiceDetail(inv, date, method, subtotal, discount, tax, grand, pay, returnAmount, items) {
             document.getElementById('modal-inv').innerText = inv;
             document.getElementById('modal-date').innerText = date;
             document.getElementById('modal-method').innerText = method;
             document.getElementById('modal-subtotal').innerText = formatRp(subtotal);
+            
+            // Handle discount row display
+            const discountRow = document.getElementById('modal-discount-row');
+            if (discount > 0) {
+                document.getElementById('modal-discount').innerText = '- ' + formatRp(discount);
+                discountRow.classList.remove('hidden');
+                discountRow.classList.add('flex');
+            } else {
+                discountRow.classList.add('hidden');
+                discountRow.classList.remove('flex');
+            }
+
             document.getElementById('modal-tax').innerText = formatRp(tax);
             document.getElementById('modal-grand').innerText = formatRp(grand);
             document.getElementById('modal-pay').innerText = formatRp(pay);
             document.getElementById('modal-return').innerText = formatRp(returnAmount);
+
+            // Dynamically calculate actual tax percentage based on subtotal after discount
+            let totalAfterDiscount = subtotal - discount;
+            let taxPercent = totalAfterDiscount > 0 ? Math.round((tax / totalAfterDiscount) * 100) : 0;
+            document.getElementById('modal-tax-label').innerText = 'Tax (' + taxPercent + '%)';
 
             let itemsHtml = '';
             items.forEach(item => {

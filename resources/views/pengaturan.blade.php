@@ -8,6 +8,7 @@
 
         $taxEnabled = ($settings['tax_enabled'] ?? '1') == '1';
         $taxRate = $settings['tax_rate'] ?? 10;
+        $targetSales = $settings['target_sales'] ?? 0;
         $receiptFooter = $settings['receipt_footer'] ?? "Terima kasih telah berkunjung!\nBarang yang sudah dibeli tidak dapat ditukar/dikembalikan.";
 
         $userName = $user->name ?? 'Admin KasirPro';
@@ -258,7 +259,7 @@
                                 <div class="relative h-6 w-11 rounded-full bg-slate-200 transition peer-checked:bg-blue-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full"></div>
                             </label>
 
-                            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                                 <div>
                                     <label class="mb-2 block text-sm font-bold text-slate-950">
                                         Besaran Pajak (%)
@@ -272,6 +273,22 @@
                                         value="{{ old('tax_rate', $taxRate) }}"
                                         required
                                         class="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                                    >
+                                </div>
+
+                                <div class="md:col-span-2">
+                                    <label class="mb-2 block text-sm font-bold text-slate-950">
+                                        Target Penjualan Bulanan (Rp)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="target_sales"
+                                        min="0"
+                                        step="1000"
+                                        value="{{ old('target_sales', $targetSales) }}"
+                                        required
+                                        class="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+                                        placeholder="Contoh: 10000000"
                                     >
                                 </div>
                             </div>

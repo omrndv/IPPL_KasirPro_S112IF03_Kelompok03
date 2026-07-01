@@ -5,11 +5,15 @@ use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MidtransController;
 
 // 1. Landing Page (Bisa diakses siapa saja)
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Midtrans Webhook (tidak perlu auth — dikecualikan dari CSRF di VerifyCsrfToken)
+Route::post('/midtrans/notification', [MidtransController::class, 'notification'])->name('midtrans.notification');
 
 // 2. Akses Tamu / Belum Login (Guest)
 Route::middleware('guest')->group(function () {
@@ -59,17 +63,25 @@ Route::middleware('auth')->group(function () {
         // --- RUTE LAPORAN (ANALYTICS) ---
         Route::get('/laporan', [App\Http\Controllers\AnalyticsController::class, 'laporan'])->name('analytics.laporan');
         Route::get('/laporan/export', [App\Http\Controllers\AnalyticsController::class, 'exportCsv'])->name('analytics.export');
+
+        // --- RUTE VOUCHER ---
+        Route::get('/voucher', [App\Http\Controllers\VoucherController::class, 'index'])->name('voucher.index');
+        Route::post('/voucher', [App\Http\Controllers\VoucherController::class, 'store'])->name('voucher.store');
+        Route::put('/voucher/{id}', [App\Http\Controllers\VoucherController::class, 'update'])->name('voucher.update');
+        Route::delete('/voucher/{id}', [App\Http\Controllers\VoucherController::class, 'destroy'])->name('voucher.destroy');
     });
 
     // --- RUTE TRANSAKSI KASIR (KASIR, OWNER, ADMIN) ---
     Route::get('/transaksi', [App\Http\Controllers\PosController::class, 'index'])->name('pos.index');
     Route::post('/transaksi/checkout', [App\Http\Controllers\PosController::class, 'checkout'])->name('pos.checkout');
+    Route::post('/transaksi/cek-voucher', [App\Http\Controllers\VoucherController::class, 'checkVoucher'])->name('pos.check-voucher');
 
     // --- RUTE ANALYTICS RIWAYAT (KASIR, OWNER, ADMIN) ---
     Route::get('/riwayat', [App\Http\Controllers\AnalyticsController::class, 'riwayat'])->name('analytics.riwayat');
     Route::delete('/riwayat/{id}', [App\Http\Controllers\AnalyticsController::class, 'destroy'])->name('analytics.riwayat.destroy');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/dashboard/ai-chat', [App\Http\Controllers\AiController::class, 'chat'])->name('dashboard.ai-chat');
 
     // --- RUTE SUPERADMIN ---
     Route::middleware([\App\Http\Middleware\SuperAdminMiddleware::class])->group(function () {

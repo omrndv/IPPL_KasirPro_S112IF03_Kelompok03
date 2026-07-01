@@ -75,11 +75,13 @@ class SettingController extends Controller
         $validated = $request->validate([
             'tax_enabled' => ['nullable', 'boolean'],
             'tax_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'target_sales' => ['required', 'numeric', 'min:0'],
             'receipt_footer' => ['required', 'string', 'max:500'],
         ]);
 
         Setting::setValue('tax_enabled', $request->has('tax_enabled') ? '1' : '0');
         Setting::setValue('tax_rate', $validated['tax_rate']);
+        Setting::setValue('target_sales', $validated['target_sales']);
         Setting::setValue('receipt_footer', $validated['receipt_footer']);
 
         return back()->with('success', 'Pengaturan transaksi dan struk berhasil diperbarui.');

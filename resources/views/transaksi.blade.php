@@ -2,6 +2,7 @@
 
 @section('content')
 <meta name="csrf-token" content="{{ csrf_token() }}">
+<script src="{{ config('midtrans.snap_url') }}" data-client-key="{{ config('midtrans.client_key') }}"></script>
 
 <div class="flex h-[calc(100vh-8rem)] flex-col gap-6 overflow-hidden xl:flex-row">
     <div class="flex h-full w-full flex-col xl:w-8/12">
@@ -102,12 +103,44 @@
 
     <div class="border-t border-slate-100 bg-white p-5">
         <div class="mb-5 space-y-3 rounded-[1.5rem] bg-slate-50 p-4">
+            @php
+                $taxEnabled = ($settings['tax_enabled'] ?? '1') == '1';
+                $taxRatePercent = $taxEnabled ? (float) ($settings['tax_rate'] ?? 10) : 0;
+            @endphp
             <div class="flex justify-between text-sm">
                 <span class="font-semibold text-slate-500">Subtotal</span>
                 <span id="subtotal-display" class="font-black text-slate-950">Rp 0</span>
             </div>
+            
+            {{-- Voucher/Diskon Input --}}
+            <div class="border-t border-slate-100 pt-3">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-black uppercase text-slate-400">Voucher / Diskon</span>
+                    <button type="button" onclick="openSelectVoucherModal()" class="text-xs font-black text-blue-600 hover:underline">
+                        Pilih Voucher
+                    </button>
+                </div>
+                <div class="mt-2 flex gap-2">
+                    <input type="text" id="voucher-input" placeholder="Masukkan kode..." class="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-blue-500">
+                    <button type="button" onclick="applyVoucherCode()" class="rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white transition hover:bg-blue-600">
+                        Cek
+                    </button>
+                </div>
+                <div id="active-voucher-badge" class="mt-2 hidden items-center justify-between rounded-xl bg-blue-50 border border-blue-100 px-3 py-2 text-xs">
+                    <div>
+                        <span class="font-black text-blue-700" id="applied-voucher-code"></span>
+                        <span class="block text-[10px] text-blue-500 font-semibold" id="applied-voucher-name"></span>
+                    </div>
+                    <button type="button" onclick="removeVoucher()" class="text-rose-500 hover:text-rose-700 font-black">X</button>
+                </div>
+            </div>
+
+            <div class="flex justify-between text-sm border-t border-slate-100 pt-3">
+                <span class="font-semibold text-slate-500">Diskon</span>
+                <span id="discount-display" class="font-black text-rose-500">Rp 0</span>
+            </div>
             <div class="flex justify-between text-sm">
-                <span class="font-semibold text-slate-500">Tax (10%)</span>
+                <span class="font-semibold text-slate-500" id="tax-label">Tax ({{ $taxRatePercent }}%)</span>
                 <span id="tax-display" class="font-black text-slate-950">Rp 0</span>
             </div>
             <div class="flex items-center justify-between border-t border-slate-200 pt-3">
@@ -132,7 +165,7 @@
             <div class="flex items-center justify-between border-b border-slate-100 p-5">
                 <div>
                     <h3 class="text-lg font-black text-slate-950">Selesaikan Pembayaran</h3>
-                    <p class="mt-1 text-sm font-semibold text-slate-400">Pilih metode dan masukkan nominal bayar.</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-400">Pilih metode pembayaran.</p>
                 </div>
                 <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 transition hover:bg-slate-100 hover:text-slate-950" data-modal-hide="payment-modal">
                     <svg class="h-3.5 w-3.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
@@ -142,72 +175,126 @@
             </div>
 
             <div class="p-5">
-                <div class="mb-6 rounded-[1.5rem] bg-slate-50 p-5 text-center">
-                    <p class="mb-1 text-sm font-bold text-slate-400">Total Amount</p>
-                    <h2 id="modal-total-display" class="text-4xl font-black tracking-tight text-slate-950">Rp 0</h2>
+                {{-- Total Display --}}
+                <div class="mb-6 rounded-[1.5rem] bg-gradient-to-br from-slate-900 to-slate-800 p-5 text-center">
+                    <p class="mb-1 text-xs font-bold text-slate-400 uppercase tracking-widest">Total Pembayaran</p>
+                    <h2 id="modal-total-display" class="text-4xl font-black tracking-tight text-white">Rp 0</h2>
                 </div>
 
-                <h4 class="mb-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Payment Method</h4>
-                <ul class="mb-6 grid w-full gap-3 md:grid-cols-3">
+                {{-- Payment Method Selector --}}
+                <h4 class="mb-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Metode Pembayaran</h4>
+                <ul class="mb-5 grid w-full gap-3 grid-cols-2">
+                    {{-- Tunai --}}
                     <li>
                         <input type="radio" id="pay-cash" name="payment_method" value="cash" onchange="onPaymentMethodChange(this.value)" class="peer hidden" required checked>
-                        <label for="pay-cash" class="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
-                            <div class="text-center">
-                                <div class="mb-1 text-xl">💵</div>
-                                <div class="text-xs font-black">Cash</div>
-                            </div>
+                        <label for="pay-cash" class="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white p-4 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
+                            <div class="text-3xl">💵</div>
+                            <div class="text-sm font-black">Tunai</div>
+                            <div class="text-[10px] font-semibold text-slate-400 peer-checked:text-blue-500">Cash / Uang Fisik</div>
                         </label>
                     </li>
+                    {{-- Midtrans --}}
                     <li>
-                        <input type="radio" id="pay-qris" name="payment_method" value="qris" onchange="onPaymentMethodChange(this.value)" class="peer hidden">
-                        <label for="pay-qris" class="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
-                            <div class="text-center">
-                                <div class="mb-1 text-xl">📱</div>
-                                <div class="text-xs font-black">QRIS</div>
-                            </div>
-                        </label>
-                    </li>
-                    <li>
-                        <input type="radio" id="pay-card" name="payment_method" value="card" onchange="onPaymentMethodChange(this.value)" class="peer hidden">
-                        <label for="pay-card" class="inline-flex w-full cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
-                            <div class="text-center">
-                                <div class="mb-1 text-xl">💳</div>
-                                <div class="text-xs font-black">Card</div>
-                            </div>
+                        <input type="radio" id="pay-midtrans" name="payment_method" value="midtrans" onchange="onPaymentMethodChange(this.value)" class="peer hidden">
+                        <label for="pay-midtrans" class="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white p-4 text-slate-500 transition hover:bg-slate-50 peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:text-blue-700">
+                            <div class="text-3xl">📲</div>
+                            <div class="text-sm font-black">Digital</div>
+                            <div class="text-[10px] font-semibold text-slate-400">QRIS · GoPay · Transfer</div>
                         </label>
                     </li>
                 </ul>
 
-                <div id="cash-received-container" class="mb-6">
-                    <label class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-400">Cash Received</label>
+                {{-- Cash Section --}}
+                <div id="cash-received-container" class="mb-4">
+                    <label class="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-400">Uang Diterima</label>
                     <input type="number" id="pay-amount" oninput="calculateChange()" class="block w-full rounded-2xl border border-slate-200 bg-white p-4 text-lg font-black text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Masukkan jumlah uang...">
                 </div>
-
-                <div id="change-container" class="mb-6 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                    <span class="text-sm font-bold text-slate-500">Change</span>
+                <div id="change-container" class="mb-5 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span class="text-sm font-bold text-slate-500">Kembalian</span>
                     <span id="change-display" class="text-xl font-black text-slate-400">Rp 0</span>
                 </div>
 
-                <!-- QRIS Static Code Container -->
-                <div id="qris-container" class="hidden mb-6 flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                    <p class="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Scan QRIS untuk Pembayaran</p>
-                    <div class="relative rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
-                        <img src="{{ asset('images/static_qris.png') }}" class="w-48 h-48 object-contain mx-auto" alt="QRIS Code">
+                {{-- Midtrans Info Section --}}
+                <div id="midtrans-info-container" class="hidden mb-5 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                    <div class="flex items-start gap-3">
+                        <div class="text-2xl">📲</div>
+                        <div>
+                            <p class="text-sm font-black text-blue-800">Bayar via Midtrans</p>
+                            <p class="mt-0.5 text-xs font-semibold text-blue-600">Popup pembayaran akan muncul setelah klik tombol di bawah. Kamu bisa memilih QRIS, GoPay, OVO, Transfer Bank, dan lainnya.</p>
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">QRIS</span>
+                                <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">GoPay</span>
+                                <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">OVO</span>
+                                <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">ShopeePay</span>
+                                <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">Transfer Bank</span>
+                            </div>
+                        </div>
                     </div>
-                    <p class="mt-3 text-xs font-bold text-slate-500">Silakan scan kode QR di atas untuk menyelesaikan pembayaran non-tunai.</p>
                 </div>
 
+                {{-- Submit Button --}}
                 <button type="button" onclick="submitCheckout()" id="btn-submit-payment" class="flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-4 text-center text-base font-black text-white shadow-lg shadow-slate-900/15 transition hover:bg-blue-600">
-                    <span id="btn-text">Complete & Print Receipt</span>
+                    <span id="btn-text">Selesaikan Pembayaran</span>
                     <svg id="btn-spinner" class="ml-3 hidden h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </button>
+
+                <p class="mt-3 text-center text-[10px] text-slate-400">Pembayaran digital diproses via <span class="font-bold text-blue-500">Midtrans</span> (Sandbox)</p>
             </div>
         </div>
     </div>
 </div>
+
+
+{{-- Modal Pilih Voucher --}}
+<div id="select-voucher-modal" tabindex="-1" aria-hidden="true" class="fixed left-0 right-0 top-0 z-50 hidden h-[calc(100%-1rem)] max-h-full w-full items-center justify-center overflow-y-auto overflow-x-hidden bg-slate-950/40 backdrop-blur-sm md:inset-0">
+    <div class="relative max-h-full w-full max-w-md p-4">
+        <div class="relative rounded-[2rem] border border-white/80 bg-white shadow-2xl shadow-slate-900/20">
+            <div class="flex items-center justify-between border-b border-slate-100 p-5">
+                <div>
+                    <h3 class="text-lg font-black text-slate-950">Pilih Voucher Promo</h3>
+                    <p class="mt-1 text-sm font-semibold text-slate-400">Pilih voucher aktif untuk transaksi ini.</p>
+                </div>
+                <button type="button" onclick="if(voucherModalInstance){voucherModalInstance.hide();}else{document.querySelector('#select-voucher-modal').classList.add('hidden');}" class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 transition hover:bg-slate-100 hover:text-slate-950" data-modal-hide="select-voucher-modal">
+                    <svg class="h-3.5 w-3.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-5 max-h-[350px] overflow-y-auto space-y-3">
+                @forelse($vouchers as $v)
+                <div class="voucher-option-card flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:bg-blue-50/50 hover:border-blue-200" id="voucher-opt-{{ $v->code }}" data-min="{{ $v->min_purchase }}">
+                    <div class="min-w-0">
+                        <h4 class="font-black text-slate-950 text-sm">{{ $v->name }}</h4>
+                        <span class="inline-block mt-1 font-mono text-xs font-bold text-blue-600 uppercase tracking-wider">{{ $v->code }}</span>
+                        <span class="block text-[10px] text-slate-400 mt-1 font-semibold">Min. Belanja: Rp {{ number_format($v->min_purchase, 0, ',', '.') }}</span>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <p class="font-black text-slate-950 text-sm">
+                            {{ $v->type === 'fixed' ? 'Rp ' . number_format($v->value, 0, ',', '.') : $v->value . '%' }}
+                        </p>
+                        <button type="button" onclick="selectVoucher('{{ $v->code }}')" class="voucher-select-btn mt-2 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-black text-white transition hover:bg-blue-700">
+                            Gunakan
+                        </button>
+                    </div>
+                </div>
+                @empty
+                <p class="text-center text-xs font-bold text-slate-400 py-6">Tidak ada voucher aktif saat ini.</p>
+                @endforelse
+            </div>
+            
+            <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 p-4">
+                <button type="button" onclick="if(voucherModalInstance){voucherModalInstance.hide();}else{document.querySelector('#select-voucher-modal').classList.add('hidden');}" data-modal-hide="select-voucher-modal" class="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <div id="receipt-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
     <div class="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl shadow-slate-900/20">
@@ -239,6 +326,10 @@
                 <div class="flex justify-between font-semibold text-slate-500">
                     <p>Subtotal</p>
                     <p id="receipt-subtotal"></p>
+                </div>
+                <div id="receipt-discount-row" class="hidden justify-between font-semibold text-rose-500">
+                    <p>Diskon</p>
+                    <p id="receipt-discount"></p>
                 </div>
                 <div class="flex justify-between font-semibold text-slate-500">
                     <p id="receipt-tax-label">Tax</p>
@@ -276,7 +367,7 @@
 
 <script>
     let cart = [];
-    const TAX_RATE = 0.10;
+    const TAX_RATE = {{ $taxRatePercent / 100 }};
     let grandTotalValue = 0;
 
     const formatRupiah = (number) => {
@@ -335,6 +426,7 @@
         const cartContainer = document.getElementById('cart-items');
         const btnCharge = document.getElementById('btn-charge');
         let subtotal = 0;
+        let discount = currentDiscountAmount;
 
         cartContainer.innerHTML = '';
 
@@ -351,6 +443,7 @@
             `;
 
             btnCharge.disabled = true;
+            removeVoucher(); // auto remove voucher if cart empty
         } else {
             btnCharge.disabled = false;
 
@@ -380,15 +473,152 @@
             });
         }
 
-        let tax = subtotal * TAX_RATE;
-        grandTotalValue = subtotal + tax;
+        // Validate min purchase of applied voucher
+        if (appliedVoucherCode && subtotal < appliedVoucherMinPurchase) {
+            alert('Voucher "' + appliedVoucherCode + '" dicopot karena subtotal kurang dari batas minimal belanja.');
+            removeVoucher();
+            return;
+        }
+
+        // Recalculate discount based on subtotal & voucher type
+        if (appliedVoucherCode) {
+            if (appliedVoucherType === 'fixed') {
+                discount = Math.min(appliedVoucherValue, subtotal);
+            } else {
+                discount = Math.round(subtotal * (appliedVoucherValue / 100));
+            }
+            currentDiscountAmount = discount;
+        }
+
+        let totalAfterDiscount = Math.max(subtotal - discount, 0);
+        let tax = totalAfterDiscount * TAX_RATE;
+        grandTotalValue = totalAfterDiscount + tax;
 
         document.getElementById('subtotal-display').innerText = formatRupiah(subtotal);
+        document.getElementById('discount-display').innerText = '- ' + formatRupiah(discount);
         document.getElementById('tax-display').innerText = formatRupiah(tax);
         document.getElementById('total-display').innerText = formatRupiah(grandTotalValue);
         document.getElementById('modal-total-display').innerText = formatRupiah(grandTotalValue);
 
         calculateChange();
+    }
+
+    // --- Voucher Logic Variables & Functions ---
+    let appliedVoucherCode = null;
+    let appliedVoucherName = null;
+    let appliedVoucherType = null;
+    let appliedVoucherValue = 0;
+    let appliedVoucherMinPurchase = 0;
+    let currentDiscountAmount = 0;
+
+    let voucherModalInstance = null;
+
+    function openSelectVoucherModal() {
+        const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+        
+        // Highlight/filter options based on min_purchase condition
+        document.querySelectorAll('.voucher-option-card').forEach(card => {
+            const minPurchase = parseFloat(card.getAttribute('data-min')) || 0;
+            const selectBtn = card.querySelector('.voucher-select-btn');
+            
+            if (subtotal < minPurchase) {
+                card.classList.add('opacity-50');
+                if (selectBtn) {
+                    selectBtn.disabled = true;
+                    selectBtn.innerText = 'Min. Belanja Kurang';
+                    selectBtn.className = 'voucher-select-btn mt-2 rounded-xl bg-slate-300 px-3 py-1.5 text-xs font-black text-slate-500 cursor-not-allowed';
+                }
+            } else {
+                card.classList.remove('opacity-50');
+                if (selectBtn) {
+                    selectBtn.disabled = false;
+                    selectBtn.innerText = 'Gunakan';
+                    selectBtn.className = 'voucher-select-btn mt-2 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-black text-white hover:bg-blue-700 transition';
+                }
+            }
+        });
+
+        const modal = document.getElementById('select-voucher-modal');
+        if (!voucherModalInstance) {
+            voucherModalInstance = new Modal(modal);
+        }
+        voucherModalInstance.show();
+    }
+
+    async function selectVoucher(code) {
+        if (voucherModalInstance) {
+            voucherModalInstance.hide();
+        } else {
+            const closeBtn = document.querySelector('[data-modal-hide="select-voucher-modal"]');
+            if (closeBtn) closeBtn.click();
+        }
+        
+        document.getElementById('voucher-input').value = code;
+        await applyVoucherCode();
+    }
+
+    async function applyVoucherCode() {
+        const inputEl = document.getElementById('voucher-input');
+        const code = inputEl.value.trim();
+        if (!code) return;
+
+        const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+        if (subtotal === 0) {
+            alert('Tambahkan barang ke keranjang terlebih dahulu.');
+            return;
+        }
+
+        try {
+            const response = await fetch("{{ route('pos.check-voucher') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({ code: code, subtotal: subtotal })
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                alert('❌ Error: ' + (result.message || 'Kode voucher tidak valid.'));
+                return;
+            }
+
+            appliedVoucherCode = result.code;
+            appliedVoucherName = result.name;
+            appliedVoucherType = result.type;
+            appliedVoucherValue = result.value;
+            appliedVoucherMinPurchase = result.min_purchase || 0;
+            currentDiscountAmount = result.discount_amount;
+
+            // UI Updates
+            document.getElementById('applied-voucher-code').innerText = appliedVoucherCode;
+            document.getElementById('applied-voucher-name').innerText = appliedVoucherName;
+            document.getElementById('active-voucher-badge').classList.remove('hidden');
+            document.getElementById('active-voucher-badge').classList.add('flex');
+            
+            inputEl.value = '';
+            renderCart();
+
+        } catch (error) {
+            console.error('Voucher verification failed:', error);
+            alert('Gagal menghubungi server untuk verifikasi voucher.');
+        }
+    }
+
+    function removeVoucher() {
+        appliedVoucherCode = null;
+        appliedVoucherName = null;
+        appliedVoucherType = null;
+        appliedVoucherValue = 0;
+        appliedVoucherMinPurchase = 0;
+        currentDiscountAmount = 0;
+
+        document.getElementById('active-voucher-badge').classList.add('hidden');
+        document.getElementById('active-voucher-badge').classList.remove('flex');
+        document.getElementById('voucher-input').value = '';
+
+        renderCart();
     }
 
     function clearCart() {
@@ -428,26 +658,25 @@
     }
 
     function onPaymentMethodChange(method) {
-        const qrisContainer = document.getElementById('qris-container');
+        const midtransInfoContainer = document.getElementById('midtrans-info-container');
         const cashReceivedContainer = document.getElementById('cash-received-container');
         const changeContainer = document.getElementById('change-container');
         const payAmountInput = document.getElementById('pay-amount');
+        const btnText = document.getElementById('btn-text');
 
-        if (method === 'qris') {
-            qrisContainer.classList.remove('hidden');
+        if (method === 'midtrans') {
+            midtransInfoContainer.classList.remove('hidden');
             cashReceivedContainer.classList.add('hidden');
             changeContainer.classList.add('hidden');
             payAmountInput.value = grandTotalValue;
-        } else if (method === 'card') {
-            qrisContainer.classList.add('hidden');
-            cashReceivedContainer.classList.add('hidden');
-            changeContainer.classList.add('hidden');
-            payAmountInput.value = grandTotalValue;
+            btnText.innerText = '📲 Lanjut ke Pembayaran Digital';
         } else {
-            qrisContainer.classList.add('hidden');
+            // cash
+            midtransInfoContainer.classList.add('hidden');
             cashReceivedContainer.classList.remove('hidden');
             changeContainer.classList.remove('hidden');
             payAmountInput.value = '';
+            btnText.innerText = 'Selesaikan Pembayaran';
         }
 
         calculateChange();
@@ -464,7 +693,8 @@
         let submitBtn = document.getElementById('btn-submit-payment');
 
         submitBtn.disabled = true;
-        btnText.innerText = "Memproses...";
+        const originalBtnText = btnText.innerText;
+        btnText.innerText = 'Memproses...';
         spinner.classList.remove('hidden');
 
         try {
@@ -477,35 +707,89 @@
                 body: JSON.stringify({
                     cart: cart,
                     pay_amount: payAmount,
-                    payment_method: paymentMethod
+                    payment_method: paymentMethod,
+                    voucher_code: appliedVoucherCode,
+                    discount: currentDiscountAmount
                 })
             });
 
             let result = await response.json();
 
-            if (response.ok && result.success) {
-                const paymentCloseButton = document.querySelector('[data-modal-hide="payment-modal"]');
-
-                if (paymentCloseButton) {
-                    paymentCloseButton.click();
-                }
-
-                showReceipt(result);
-
-                cart = [];
-                renderCart();
-                document.getElementById('pay-amount').value = '';
-            } else {
+            if (!response.ok || !result.success) {
                 alert('❌ Gagal: ' + (result.message || 'Transaksi gagal diproses.'));
+                return;
             }
+
+            // ── CASH: langsung tampil struk ───────────────────────────────────
+            if (!result.type || result.type !== 'midtrans') {
+                closePModalAndShowReceipt(result);
+                return;
+            }
+
+            // ── MIDTRANS: buka Snap popup ─────────────────────────────────────
+            const snapToken = result.snap_token;
+            const receiptData = result.receipt_data;
+
+            spinner.classList.add('hidden');
+            btnText.innerText = 'Menunggu pembayaran...';
+
+            window.snap.pay(snapToken, {
+                onSuccess: function(snapResult) {
+                    console.log('Midtrans payment success:', snapResult);
+                    closePModalAndShowReceipt(receiptData);
+                },
+                onPending: function(snapResult) {
+                    console.log('Midtrans payment pending:', snapResult);
+                    // Tutup modal payment, tampilkan notif pending
+                    const paymentCloseButton = document.querySelector('[data-modal-hide="payment-modal"]');
+                    if (paymentCloseButton) paymentCloseButton.click();
+                    showToast('⏳ Pembayaran sedang diproses. Struk akan tersedia setelah konfirmasi.');
+                    cart = [];
+                    renderCart();
+                },
+                onError: function(snapResult) {
+                    console.error('Midtrans payment error:', snapResult);
+                    alert('❌ Pembayaran gagal. Silakan coba lagi atau pilih metode lain.');
+                    submitBtn.disabled = false;
+                    btnText.innerText = originalBtnText;
+                },
+                onClose: function() {
+                    // User menutup popup tanpa bayar
+                    submitBtn.disabled = false;
+                    btnText.innerText = originalBtnText;
+                }
+            });
+
+            return; // Jangan jalankan finally reset di bawah untuk midtrans
+
         } catch (error) {
-            console.error("Error:", error);
+            console.error('Checkout error:', error);
             alert('Terjadi kesalahan koneksi server.');
         } finally {
-            submitBtn.disabled = false;
-            btnText.innerText = "Complete & Print Receipt";
-            spinner.classList.add('hidden');
+            // Reset untuk cash (midtrans punya return di atas)
+            if (document.querySelector('input[name="payment_method"]:checked')?.value === 'cash') {
+                submitBtn.disabled = false;
+                btnText.innerText = 'Selesaikan Pembayaran';
+                spinner.classList.add('hidden');
+            }
         }
+    }
+
+    function closePModalAndShowReceipt(result) {
+        const paymentCloseButton = document.querySelector('[data-modal-hide="payment-modal"]');
+        if (paymentCloseButton) paymentCloseButton.click();
+        showReceipt(result);
+        cart = [];
+        renderCart();
+        document.getElementById('pay-amount').value = '';
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] bg-slate-900 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl';
+        toast.innerText = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
     }
 
     function showReceipt(result) {
@@ -517,10 +801,24 @@
 
         document.getElementById('receipt-invoice').innerText = result.invoice_no || '-';
         document.getElementById('receipt-date').innerText = result.created_at || '-';
-        document.getElementById('receipt-method').innerText = result.payment_method || '-';
+        const methodLabel = {'cash': 'Tunai', 'midtrans': 'Midtrans / Digital'};
+        document.getElementById('receipt-method').innerText = methodLabel[result.payment_method] || (result.payment_method || '-').toUpperCase();
 
         document.getElementById('receipt-subtotal').innerText = formatRupiah(result.subtotal);
-        document.getElementById('receipt-tax-label').innerText = 'Tax (' + (settings.tax_rate || 10) + '%)';
+        
+        // Handle discount row display
+        const discountRow = document.getElementById('receipt-discount-row');
+        if (result.discount && result.discount > 0) {
+            document.getElementById('receipt-discount').innerText = '- ' + formatRupiah(result.discount);
+            discountRow.classList.remove('hidden');
+            discountRow.classList.add('flex');
+        } else {
+            discountRow.classList.remove('flex');
+            discountRow.classList.add('hidden');
+        }
+
+        const actualTaxRate = settings.tax_rate !== undefined ? settings.tax_rate : 10;
+        document.getElementById('receipt-tax-label').innerText = 'Tax (' + actualTaxRate + '%)';
         document.getElementById('receipt-tax').innerText = formatRupiah(result.tax);
         document.getElementById('receipt-grand').innerText = formatRupiah(result.grand_total);
         document.getElementById('receipt-pay').innerText = formatRupiah(result.pay_amount);

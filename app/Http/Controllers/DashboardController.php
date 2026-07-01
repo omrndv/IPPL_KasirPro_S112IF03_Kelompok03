@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
 use App\Models\Product;
 use App\Models\Transaction;
 use App\Models\TransactionDetail;
@@ -30,13 +31,41 @@ class DashboardController extends Controller
             ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
             ->count();
 
-        $totalRevenue = Transaction::where('outlet_id', $outletId)
+        $totalRevenue = (float) Transaction::where('outlet_id', $outletId)
             ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->sum('grand_total');
 
         $lastMonthRevenue = Transaction::where('outlet_id', $outletId)
             ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
             ->sum('grand_total');
+
+        // Target Sales & Projections
+        $targetSales = (float) Setting::getValue('target_sales', 0);
+        
+        $totalDaysInMonth = Carbon::now()->daysInMonth;
+        $currentDay = Carbon::now()->day;
+        $remainingDays = max($totalDaysInMonth - $currentDay, 1);
+        
+        // Sales velocity: revenue per day elapsed
+        $daysElapsed = max($currentDay, 1);
+        $salesVelocity = $totalRevenue / $daysElapsed;
+        
+        // Project revenue to end of month
+        $projectedRevenue = $salesVelocity * $totalDaysInMonth;
+        
+        $targetProgress = $targetSales > 0 ? min(round(($totalRevenue / $targetSales) * 100), 100) : 0;
+        
+        // Calculate status
+        if ($targetSales <= 0) {
+            $targetStatus = 'Belum Diatur';
+            $targetStatusColor = 'text-slate-500 bg-slate-50 border-slate-100';
+        } elseif ($projectedRevenue >= $targetSales) {
+            $targetStatus = 'On Track (Aman)';
+            $targetStatusColor = 'text-emerald-700 bg-emerald-50 border-emerald-100';
+        } else {
+            $targetStatus = 'Meleset (Butuh Upaya)';
+            $targetStatusColor = 'text-rose-700 bg-rose-50 border-rose-100';
+        }
 
         $totalHpp = TransactionDetail::whereHas('transaction', function ($query) use ($startOfMonth, $endOfMonth, $outletId) {
                 $query->where('outlet_id', $outletId)
@@ -127,7 +156,13 @@ class DashboardController extends Controller
             'paymentStats',
             'recentTransactions',
             'totalProducts',
-            'lowStockProducts'
+            'lowStockProducts',
+            'targetSales',
+            'remainingDays',
+            'projectedRevenue',
+            'targetProgress',
+            'targetStatus',
+            'targetStatusColor'
         ));
     }
 

@@ -115,6 +115,19 @@
                             <span class="flex-1 whitespace-nowrap text-sm">Stok Bahan Baku</span>
                         </a>
                     </li>
+
+                    <li class="relative">
+                        @if (request()->is('voucher'))
+                            <div class="absolute -left-4 bottom-2 top-2 w-1 rounded-r-full bg-blue-600"></div>
+                        @endif
+
+                        <a href="/voucher" class="flex items-center rounded-2xl px-3 py-2.5 transition {{ request()->is('voucher') ? 'bg-blue-50 text-blue-700 font-black' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-950 font-bold' }}">
+                            <svg class="mr-3 h-5 w-5 {{ request()->is('voucher') ? 'text-blue-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path>
+                            </svg>
+                            <span class="text-sm">Voucher & Diskon</span>
+                        </a>
+                    </li>
                 @endif
 
                 <li class="px-2 pb-1 pt-6 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
